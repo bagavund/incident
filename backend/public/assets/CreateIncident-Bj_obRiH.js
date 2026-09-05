@@ -1,1 +1,0 @@
-import{v as o}from"./index-DXLAHp1P.js";import{I as n}from"./IncidentForm-CrGDKR2C.js";import"./trash-2-D-piYFCf.js";import"./plus-C4kRupk3.js";function s({onPublished:r,onCancel:t}){return o.jsx(n,{onSaved:r,onCancel:t})}export{s as CreateIncident};

@@ -2,3 +2,7 @@ node_modules
 dist
 *.local
 .DS_Store
+
+# vite build output copied into Laravel's public dir
+backend/public/assets
+backend/public/index.html
