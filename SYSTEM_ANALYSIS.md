@@ -125,7 +125,7 @@ IMS — веб-реестр IT-инцидентов: единая форма р�
 отдаёт и статику, и API с одного origin.
 
 ```
-[ React SPA ]  →  [ REST + JWT ]  →  [ Laravel 13 / PHP 8.3 ]  →  [ SQLite ]
+[ React SPA ]  →  [ REST + JWT ]  →  [ Laravel 13 / PHP 8.4 ]  →  [ SQLite ]
   React 18 + TS       JSON/HTTP         Кастомный JWT              16 миграций
   Vite, код-сплит     Bearer-токен      (firebase/php-jwt)         Файл в томе
   Tailwind, Recharts  общий origin      Eloquent ORM              Драйвер меняется
@@ -501,7 +501,7 @@ Backend покрыт feature-тестами: CRUD инцидента, права
 ### 10. Эксплуатация
 
 **Docker (одна команда).** Из корня: `docker compose up --build`. Многостадийная
-сборка (Node → Composer → `php:8.3-apache`): фронт собирается в `public/`,
+сборка (Node → Composer → `php:8.4-apache`): фронт собирается в `public/`,
 Composer ставится без dev, entrypoint прогоняет `migrate --seed`. Приложение и
 API — `http://localhost:8000`. SQLite в томе `ims-db` переживает пересборку;
 `docker compose down -v` сносит базу.

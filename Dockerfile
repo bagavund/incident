@@ -27,12 +27,12 @@ RUN composer install --no-dev --optimize-autoloader --no-interaction --prefer-di
  && composer dump-autoload --no-dev --optimize --no-scripts
 
 # ─────────────────────────────────────────────────────────────
-# Stage 3 — runtime: PHP 8.3 + Apache serving Laravel
+# Stage 3 — runtime: PHP 8.4 + Apache serving Laravel
 # ─────────────────────────────────────────────────────────────
-FROM php:8.3-apache AS runtime
+FROM php:8.4-apache AS runtime
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        libicu-dev libzip-dev \
+        libicu-dev libzip-dev libsqlite3-dev \
  && docker-php-ext-install -j"$(nproc)" pdo_sqlite bcmath intl zip opcache \
  && apt-get clean && rm -rf /var/lib/apt/lists/*
 
