@@ -9,17 +9,17 @@ enum UserRole: string implements LabeledEnum
 {
     use HasOptions;
 
-    /** Может создавать и редактировать инциденты. */
-    case Engineer = 'engineer';
+    /** Полный доступ: правит любой инцидент, управляет справочниками, SLA и пользователями. */
+    case Admin = 'admin';
 
-    /** Только просмотр. */
-    case Viewer = 'viewer';
+    /** Создаёт инциденты; редактировать/удалять может только те, где сам вписан дежурным. */
+    case OnDuty = 'on_duty';
 
     public function label(): string
     {
         return match ($this) {
-            self::Engineer => 'Инженер',
-            self::Viewer => 'Наблюдатель',
+            self::Admin => 'Администратор',
+            self::OnDuty => 'Дежурный',
         };
     }
 }

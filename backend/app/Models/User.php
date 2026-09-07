@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['name', 'email', 'password', 'role', 'position'])]
+#[Fillable(['name', 'username', 'password', 'role', 'position'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -21,7 +21,6 @@ class User extends Authenticatable
     protected function casts(): array
     {
         return [
-            'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'role' => UserRole::class,
         ];
@@ -33,13 +32,19 @@ class User extends Authenticatable
         return $this->hasMany(Incident::class, 'created_by');
     }
 
+    /** @return HasMany<Incident, $this> */
+    public function onDutyIncidents(): HasMany
+    {
+        return $this->hasMany(Incident::class, 'on_duty_user_id');
+    }
+
     public function hasRole(UserRole ...$roles): bool
     {
         return in_array($this->role, $roles, true);
     }
 
-    public function isEngineer(): bool
+    public function isAdmin(): bool
     {
-        return $this->role === UserRole::Engineer;
+        return $this->role === UserRole::Admin;
     }
 }

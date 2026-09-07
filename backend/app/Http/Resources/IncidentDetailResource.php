@@ -2,7 +2,7 @@
 
 namespace App\Http\Resources;
 
-use App\Enums\Concerns\LabeledEnum;
+use App\Http\Resources\Concerns\SerializesEnum;
 use App\Models\Incident;
 use App\Services\IncidentMetrics;
 use Illuminate\Http\Request;
@@ -11,6 +11,8 @@ use Illuminate\Http\Resources\Json\JsonResource;
 /** @mixin Incident */
 class IncidentDetailResource extends JsonResource
 {
+    use SerializesEnum;
+
     public function toArray(Request $request): array
     {
         return [
@@ -26,12 +28,15 @@ class IncidentDetailResource extends JsonResource
                 'id' => $this->author->id,
                 'name' => $this->author->name,
             ] : null),
+            'on_duty' => $this->whenLoaded('onDuty', fn () => $this->onDuty ? [
+                'id' => $this->onDuty->id,
+                'name' => $this->onDuty->name,
+            ] : null),
 
             'type' => $this->type,
             'criticality' => $this->criticality,
             'status' => $this->enum($this->status),
             'sla' => $this->enum($this->sla),
-            'on_duty_name' => $this->on_duty_name,
 
             'started_at' => $this->started_at?->toIso8601String(),
             'detected_at' => $this->detected_at?->toIso8601String(),
@@ -47,7 +52,6 @@ class IncidentDetailResource extends JsonResource
             'impact' => $this->impact,
             'task_link' => $this->task_link,
             'zones' => $this->zones ?? [],
-            'custom_fields' => $this->custom_fields ?? [],
 
             'timeline' => TimelineStepResource::collection(
                 $this->whenLoaded('timelineSteps')
@@ -61,11 +65,5 @@ class IncidentDetailResource extends JsonResource
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];
-    }
-
-    /** @param  LabeledEnum&\BackedEnum  $enum */
-    protected function enum($enum): array
-    {
-        return ['value' => $enum->value, 'label' => $enum->label()];
     }
 }

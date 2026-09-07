@@ -14,7 +14,11 @@ return new class extends Migration
             $table->unsignedSmallInteger('position')->default(0);
             $table->string('kind'); // App\Enums\TimelineKind
             $table->text('action')->nullable();
-            $table->string('time')->nullable(); // "HH:MM"
+            // Момент шага: время суток из формы ("HH:MM") сервер привязывает
+            // к календарному дню начала инцидента (TimelineSync), с переносом
+            // на следующие сутки, если время шага ушло назад относительно
+            // предыдущего.
+            $table->timestamp('occurred_at')->nullable();
             $table->boolean('custom')->default(false); // промежуточный шаг без фиксированного kind-слота
             $table->timestamps();
 

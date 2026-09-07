@@ -17,7 +17,10 @@ class TimelineStepResource extends JsonResource
             'kind' => $this->kind->value,
             'kind_label' => $this->kind->label(),
             'action' => $this->action,
-            'time' => $this->time,
+            // "HH:MM" для инпута в форме; occurred_at — уже разрешённый сервером
+            // момент (с учётом переноса через полночь).
+            'time' => $this->occurred_at?->format('H:i'),
+            'occurred_at' => $this->occurred_at?->toIso8601String(),
             'custom' => $this->custom,
         ];
     }

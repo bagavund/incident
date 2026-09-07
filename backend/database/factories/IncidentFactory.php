@@ -9,6 +9,7 @@ use App\Models\Criticality;
 use App\Models\Incident;
 use App\Models\IncidentType;
 use App\Models\Service;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /** @extends Factory<Incident> */
@@ -30,7 +31,8 @@ class IncidentFactory extends Factory
                 ?? Criticality::factory()->create()->name,
             'status' => IncidentStatus::Published,
             'sla' => fake()->randomElement(IncidentSla::cases()),
-            'on_duty_name' => fake()->name(),
+            'on_duty_user_id' => User::query()->inRandomOrder()->value('id')
+                ?? User::factory()->onDuty()->create()->id,
             'started_at' => $started,
             'detected_at' => $detected,
             'resolved_at' => (clone $detected)->modify('+3 hours'),
@@ -65,7 +67,7 @@ class IncidentFactory extends Factory
                     'position' => $i,
                     'kind' => $kind,
                     'action' => $kind->label(),
-                    'time' => $at->format('H:i'),
+                    'occurred_at' => $at,
                 ]);
             }
         });

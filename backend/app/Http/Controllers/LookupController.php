@@ -2,19 +2,22 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Concerns\LookupValue;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Shared CRUD for the small admin-editable dictionaries (services, zones,
  * incident types, criticalities). Add/rename are case-insensitive-unique;
- * delete is blocked while any incident still references the value.
+ * delete is blocked while any incident still references the value; rename
+ * cascades into the incidents that reference the old value.
  */
 abstract class LookupController extends Controller
 {
-    /** @return class-string<Model> */
+    /** @return class-string<Model&LookupValue> */
     abstract protected function model(): string;
 
     public function index(): JsonResponse
@@ -61,7 +64,10 @@ abstract class LookupController extends Controller
             ], 422);
         }
 
-        $row->update(['name' => $name]);
+        DB::transaction(function () use ($row, $name) {
+            $row->renameUsagesTo($name);
+            $row->update(['name' => $name]);
+        });
 
         return response()->json(['data' => ['id' => $row->id, 'name' => $row->name, 'usage_count' => $row->usageCount()]]);
     }

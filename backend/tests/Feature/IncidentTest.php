@@ -2,13 +2,16 @@
 
 namespace Tests\Feature;
 
+use App\Enums\TimelineKind;
 use App\Models\Criticality;
 use App\Models\Incident;
 use App\Models\IncidentType;
 use App\Models\Service;
+use App\Models\SlaSetting;
 use App\Models\User;
 use App\Models\Zone;
 use App\Services\JwtService;
+use App\Services\SlaEvaluator;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -21,7 +24,7 @@ class IncidentTest extends TestCase
         Incident::factory()->count(3)->create();
         $needle = Incident::factory()->create(['title' => 'Полный отвал платежей']);
 
-        $this->actingAsViewer()
+        $this->actingAsOnDuty()
             ->getJson('/api/incidents?search=отвал')
             ->assertOk()
             ->assertJsonCount(1, 'data')
@@ -29,31 +32,19 @@ class IncidentTest extends TestCase
             ->assertJsonStructure(['data', 'links', 'meta']);
     }
 
-    public function test_viewer_cannot_create_an_incident(): void
+    public function test_on_duty_creates_an_incident_with_timeline(): void
     {
         [$service, $type, $criticality] = $this->baseline();
-
-        $this->actingAsViewer()
-            ->postJson('/api/incidents', [
-                'title' => 'x', 'services' => [$service->id], 'type' => $type->name,
-                'criticality' => $criticality->name, 'on_duty_name' => 'Иванов Иван',
-                'started_at' => '2026-06-01T10:00:00',
-            ])
-            ->assertForbidden();
-    }
-
-    public function test_engineer_creates_an_incident_with_timeline(): void
-    {
-        [$service, $type, $criticality] = $this->baseline();
+        $onDuty = User::factory()->onDuty()->create();
         Zone::factory()->create(['name' => 'Backend']);
         Zone::factory()->create(['name' => 'База данных']);
 
-        $response = $this->actingAsEngineer()->postJson('/api/incidents', [
+        $response = $this->actingAsOnDuty()->postJson('/api/incidents', [
             'title' => 'Ошибки 500 в оплате',
             'services' => [$service->id],
             'type' => $type->name,
             'criticality' => $criticality->name,
-            'on_duty_name' => 'Иванов Иван',
+            'on_duty_user_id' => $onDuty->id,
             'status' => 'published',
             'started_at' => '2026-06-01T10:00:00',
             'detected_at' => '2026-06-01T10:12:00',
@@ -69,26 +60,29 @@ class IncidentTest extends TestCase
 
         $response->assertCreated()
             ->assertJsonPath('data.code', fn ($code) => str_starts_with($code, 'INC-'))
+            ->assertJsonPath('data.on_duty.id', $onDuty->id)
             ->assertJsonCount(1, 'data.services')
             ->assertJsonCount(4, 'data.timeline')
             ->assertJsonPath('data.timeline.0.time', '10:12')
             ->assertJsonPath('data.metrics.to_detect.minutes', 12)
+            ->assertJsonPath('data.metrics.to_escalate.minutes', 38)
             ->assertJsonPath('data.metrics.to_diagnose.minutes', 30);
 
         $this->assertDatabaseCount('timeline_steps', 4);
     }
 
-    public function test_engineer_creates_an_incident_with_multiple_services_and_escalations(): void
+    public function test_admin_creates_an_incident_with_multiple_services_and_escalations(): void
     {
         $services = Service::factory()->count(2)->create();
         [, $type, $criticality] = $this->baseline();
+        $onDuty = User::factory()->onDuty()->create();
 
-        $response = $this->actingAsEngineer()->postJson('/api/incidents', [
+        $response = $this->actingAsAdmin()->postJson('/api/incidents', [
             'title' => 'Массовый сбой',
             'services' => $services->pluck('id')->all(),
             'type' => $type->name,
             'criticality' => $criticality->name,
-            'on_duty_name' => 'Иванов Иван',
+            'on_duty_user_id' => $onDuty->id,
             'started_at' => '2026-06-01T10:00:00',
             'escalations' => [
                 ['time' => '10:05', 'callee_name' => 'Петров Пётр', 'kind' => 'responsible', 'channel' => 'phone', 'result' => 'not_reached', 'attempts' => 2],
@@ -108,25 +102,25 @@ class IncidentTest extends TestCase
     {
         $incident = Incident::factory()->withTimeline()->create();
 
-        $this->actingAsViewer()
+        $this->actingAsOnDuty()
             ->getJson("/api/incidents/{$incident->code}")
             ->assertOk()
             ->assertJsonPath('data.id', $incident->id)
             ->assertJsonStructure([
-                'data' => ['metrics' => ['to_detect', 'to_diagnose', 'to_resolve'], 'timeline', 'escalations', 'zones'],
+                'data' => ['metrics' => ['to_detect', 'to_escalate', 'to_diagnose', 'to_resolve'], 'timeline', 'escalations', 'zones'],
             ]);
     }
 
-    public function test_engineer_updates_and_deletes(): void
+    public function test_admin_updates_and_deletes_any_incident(): void
     {
         $incident = Incident::factory()->withTimeline()->create();
 
-        $this->actingAsEngineer()
+        $this->actingAsAdmin()
             ->patchJson("/api/incidents/{$incident->code}", ['title' => 'Новое название'])
             ->assertOk()
             ->assertJsonPath('data.title', 'Новое название');
 
-        $this->actingAsEngineer()
+        $this->actingAsAdmin()
             ->deleteJson("/api/incidents/{$incident->code}")
             ->assertNoContent();
 
@@ -134,12 +128,263 @@ class IncidentTest extends TestCase
         $this->assertDatabaseCount('timeline_steps', 0);
     }
 
+    public function test_on_duty_user_updates_and_deletes_their_own_incident(): void
+    {
+        $onDuty = User::factory()->onDuty()->create();
+        $incident = Incident::factory()->withTimeline()->create(['on_duty_user_id' => $onDuty->id]);
+
+        $this->withToken($this->tokenFor($onDuty))
+            ->patchJson("/api/incidents/{$incident->code}", ['title' => 'Новое название'])
+            ->assertOk()
+            ->assertJsonPath('data.title', 'Новое название');
+
+        $this->withToken($this->tokenFor($onDuty))
+            ->deleteJson("/api/incidents/{$incident->code}")
+            ->assertNoContent();
+
+        $this->assertDatabaseMissing('incidents', ['id' => $incident->id]);
+    }
+
+    public function test_on_duty_user_cannot_edit_an_incident_assigned_to_someone_else(): void
+    {
+        $assigned = User::factory()->onDuty()->create();
+        $someoneElse = User::factory()->onDuty()->create();
+        $incident = Incident::factory()->create(['on_duty_user_id' => $assigned->id]);
+
+        $this->withToken($this->tokenFor($someoneElse))
+            ->patchJson("/api/incidents/{$incident->code}", ['title' => 'Чужой инцидент'])
+            ->assertForbidden();
+
+        $this->withToken($this->tokenFor($someoneElse))
+            ->deleteJson("/api/incidents/{$incident->code}")
+            ->assertForbidden();
+
+        $this->assertDatabaseHas('incidents', ['id' => $incident->id]);
+    }
+
     public function test_validation_errors_are_returned_as_422(): void
     {
-        $this->actingAsEngineer()
+        $this->actingAsAdmin()
             ->postJson('/api/incidents', ['title' => '', 'type' => 'bogus'])
             ->assertStatus(422)
-            ->assertJsonValidationErrors(['title', 'services', 'type', 'criticality', 'on_duty_name', 'started_at']);
+            ->assertJsonValidationErrors(['title', 'services', 'type', 'criticality', 'on_duty_user_id', 'started_at']);
+    }
+
+    public function test_sla_is_computed_server_side_from_the_escalation_threshold(): void
+    {
+        SlaSetting::current()->update(['escalation_minutes' => 30]);
+        [$service, $type, $criticality] = $this->baseline();
+        $onDuty = User::factory()->onDuty()->create();
+
+        $payload = [
+            'title' => 'Долгий сбой',
+            'services' => [$service->id],
+            'type' => $type->name,
+            'criticality' => $criticality->name,
+            'on_duty_user_id' => $onDuty->id,
+            'started_at' => '2026-06-01T10:00:00',
+            'detected_at' => '2026-06-01T10:12:00',
+            'timeline' => [
+                ['kind' => 'detected', 'time' => '10:12'],
+                ['kind' => 'handed_off', 'time' => '10:50'], // 38 минут от обнаружения — дольше 30-минутного порога
+            ],
+            // Клиент настаивает на «Соблюден» — сервер обязан его переспорить.
+            'sla' => 'met',
+        ];
+
+        $this->actingAsAdmin()->postJson('/api/incidents', $payload)
+            ->assertCreated()
+            ->assertJsonPath('data.sla.value', 'breached');
+    }
+
+    public function test_sla_is_recomputed_when_the_handoff_time_changes(): void
+    {
+        SlaSetting::current()->update(['escalation_minutes' => 30]);
+        $incident = Incident::factory()->withTimeline()->create([
+            'started_at' => '2026-06-01T10:00:00',
+            'detected_at' => '2026-06-01T10:12:00',
+        ]);
+        $handedOff = $incident->stepOfKind(TimelineKind::HandedOff);
+
+        // Двигаем эскалацию вплотную к обнаружению — вписывается в порог.
+        $this->actingAsAdmin()
+            ->patchJson("/api/incidents/{$incident->code}", [
+                'timeline' => [['id' => $handedOff->id, 'kind' => 'handed_off', 'time' => '10:15']],
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.sla.value', 'met');
+    }
+
+    public function test_an_incident_without_an_escalation_yet_has_not_breached_sla(): void
+    {
+        SlaSetting::current()->update(['escalation_minutes' => 5]);
+        $incident = Incident::factory()->create([
+            'started_at' => now()->subDay(),
+            'detected_at' => now()->subDay(),
+            'sla' => 'breached',
+        ]);
+
+        $this->actingAsAdmin()
+            ->patchJson("/api/incidents/{$incident->code}", ['title' => 'Ещё чиним'])
+            ->assertOk()
+            ->assertJsonPath('data.sla.value', 'met');
+    }
+
+    public function test_creating_an_incident_writes_a_created_audit_entry(): void
+    {
+        [$service, $type, $criticality] = $this->baseline();
+        $admin = User::factory()->admin()->create();
+        $onDuty = User::factory()->onDuty()->create();
+
+        $this->withToken($this->tokenFor($admin))->postJson('/api/incidents', [
+            'title' => 'Сбой оплаты',
+            'services' => [$service->id],
+            'type' => $type->name,
+            'criticality' => $criticality->name,
+            'on_duty_user_id' => $onDuty->id,
+            'started_at' => '2026-06-01T10:00:00',
+        ])->assertCreated();
+
+        $incident = Incident::sole();
+
+        $this->actingAsOnDuty()
+            ->getJson("/api/incidents/{$incident->code}/audit")
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.action', 'created')
+            ->assertJsonPath('data.0.user.id', $admin->id);
+    }
+
+    public function test_updating_an_incident_records_only_the_changed_fields(): void
+    {
+        $incident = Incident::factory()->create(['title' => 'Старое название']);
+
+        $this->actingAsAdmin()
+            ->patchJson("/api/incidents/{$incident->code}", ['title' => 'Новое название'])
+            ->assertOk();
+
+        $entries = $this->actingAsOnDuty()
+            ->getJson("/api/incidents/{$incident->code}/audit")
+            ->assertOk()
+            ->assertJsonPath('data.0.action', 'updated')
+            ->json('data');
+
+        $this->assertSame(['Старое название', 'Новое название'], $entries[0]['changes']['title']);
+        $this->assertArrayNotHasKey('on_duty_user_id', $entries[0]['changes']);
+    }
+
+    public function test_updating_services_records_the_id_diff(): void
+    {
+        $incident = Incident::factory()->create();
+        $beforeIds = $incident->services()->pluck('services.id')->sort()->values()->all();
+        $newService = Service::factory()->create();
+
+        $this->actingAsAdmin()
+            ->patchJson("/api/incidents/{$incident->code}", ['services' => [$newService->id]])
+            ->assertOk();
+
+        $entries = $this->actingAsOnDuty()
+            ->getJson("/api/incidents/{$incident->code}/audit")
+            ->json('data');
+
+        $this->assertSame([$beforeIds, [$newService->id]], $entries[0]['changes']['services']);
+    }
+
+    public function test_a_no_op_save_does_not_add_an_audit_entry(): void
+    {
+        $incident = Incident::factory()->create(['title' => 'Без изменений']);
+        // Фабрика проставляет sla как попало; синхронизируем его с тем, что
+        // выдаст SlaEvaluator, иначе первый же PATCH «исправит» это значение
+        // и это будет настоящее изменение, а не ложный шум в тесте.
+        $incident->update(['sla' => app(SlaEvaluator::class)->for($incident)]);
+
+        $this->actingAsAdmin()
+            ->patchJson("/api/incidents/{$incident->code}", ['title' => 'Без изменений'])
+            ->assertOk();
+
+        // Инцидент создан фабрикой напрямую, в обход контроллера — записи о
+        // создании нет; и раз ничего не поменялось, записи об обновлении тоже нет.
+        $this->assertDatabaseCount('incident_audits', 0);
+    }
+
+    public function test_deleting_an_incident_writes_a_deleted_audit_entry_that_outlives_the_row(): void
+    {
+        $incident = Incident::factory()->create(['title' => 'Уходящий инцидент']);
+        $code = $incident->code;
+
+        $this->actingAsAdmin()
+            ->deleteJson("/api/incidents/{$code}")
+            ->assertNoContent();
+
+        $this->assertDatabaseHas('incident_audits', [
+            'incident_id' => null,
+            'incident_code' => $code,
+            'incident_title' => 'Уходящий инцидент',
+            'action' => 'deleted',
+        ]);
+    }
+
+    public function test_a_step_time_that_wraps_past_midnight_is_stored_on_the_next_day(): void
+    {
+        [$service, $type, $criticality] = $this->baseline();
+        $onDuty = User::factory()->onDuty()->create();
+
+        $response = $this->actingAsAdmin()->postJson('/api/incidents', [
+            'title' => 'Ночной сбой',
+            'services' => [$service->id],
+            'type' => $type->name,
+            'criticality' => $criticality->name,
+            'on_duty_user_id' => $onDuty->id,
+            'started_at' => '2026-06-01T23:40:00',
+            'detected_at' => '2026-06-01T23:45:00',
+            'resolved_at' => '2026-06-02T01:10:00',
+            'timeline' => [
+                ['kind' => 'detected', 'time' => '23:45'],
+                ['kind' => 'handed_off', 'time' => '00:20'],
+                ['kind' => 'resolved', 'time' => '01:10'],
+            ],
+        ])->assertCreated();
+
+        // 00:20 и 01:10 ушли назад относительно 23:45 — сервер перенёс их на 2 июня.
+        $response->assertJsonPath('data.timeline.1.occurred_at', fn ($v) => str_starts_with($v, '2026-06-02T00:20'))
+            ->assertJsonPath('data.timeline.2.occurred_at', fn ($v) => str_starts_with($v, '2026-06-02T01:10'))
+            ->assertJsonPath('data.metrics.to_escalate.minutes', 35)
+            ->assertJsonPath('data.metrics.to_resolve.minutes', 90);
+    }
+
+    public function test_show_reports_stub_duration_and_escalation_spans_from_the_server(): void
+    {
+        [$service, $type, $criticality] = $this->baseline();
+        $onDuty = User::factory()->onDuty()->create();
+
+        $code = $this->actingAsAdmin()->postJson('/api/incidents', [
+            'title' => 'Сбой с заглушкой',
+            'services' => [$service->id],
+            'type' => $type->name,
+            'criticality' => $criticality->name,
+            'on_duty_user_id' => $onDuty->id,
+            'started_at' => '2026-06-01T10:00:00',
+            'detected_at' => '2026-06-01T10:05:00',
+            'stub_installed' => true,
+            'stub_on' => '10:15',
+            'stub_off' => '10:45',
+            'timeline' => [
+                ['kind' => 'detected', 'time' => '10:05'],
+                ['kind' => 'handed_off', 'time' => '10:30'],
+            ],
+            'escalations' => [
+                ['time' => '10:06', 'kind' => 'responsible', 'channel' => 'phone', 'result' => 'not_reached', 'attempts' => 2],
+                ['time' => '10:20', 'kind' => 'responsible', 'channel' => 'phone', 'result' => 'reached', 'attempts' => 1],
+            ],
+        ])->assertCreated()->json('data.code');
+
+        $this->actingAsOnDuty()
+            ->getJson("/api/incidents/{$code}")
+            ->assertOk()
+            ->assertJsonPath('data.metrics.stub_duration.minutes', 30)
+            ->assertJsonPath('data.metrics.escalation.total_calls', 3)
+            ->assertJsonPath('data.metrics.escalation.responsible_span.minutes', 14)
+            ->assertJsonPath('data.metrics.escalation.approval_span.minutes', null);
     }
 
     /** @return array{0:Service,1:IncidentType,2:Criticality} */
@@ -148,14 +393,14 @@ class IncidentTest extends TestCase
         return [Service::factory()->create(), IncidentType::factory()->create(), Criticality::factory()->create()];
     }
 
-    private function actingAsEngineer(): static
+    private function actingAsAdmin(): static
     {
-        return $this->withToken($this->tokenFor(User::factory()->engineer()->create()));
+        return $this->withToken($this->tokenFor(User::factory()->admin()->create()));
     }
 
-    private function actingAsViewer(): static
+    private function actingAsOnDuty(): static
     {
-        return $this->withToken($this->tokenFor(User::factory()->viewer()->create()));
+        return $this->withToken($this->tokenFor(User::factory()->onDuty()->create()));
     }
 
     private function tokenFor(User $user): string

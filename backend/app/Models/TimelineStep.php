@@ -7,13 +7,14 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['incident_id', 'position', 'kind', 'action', 'time', 'custom'])]
+#[Fillable(['incident_id', 'position', 'kind', 'action', 'occurred_at', 'custom'])]
 class TimelineStep extends Model
 {
     protected function casts(): array
     {
         return [
             'kind' => TimelineKind::class,
+            'occurred_at' => 'datetime',
             'custom' => 'boolean',
         ];
     }

@@ -2,9 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\UserRole;
 use App\Http\Requests\LoginRequest;
-use App\Http\Requests\RegisterRequest;
 use App\Http\Resources\UserResource;
 use App\Models\User;
 use App\Services\JwtService;
@@ -17,26 +15,13 @@ class AuthController extends Controller
 {
     public function __construct(private readonly JwtService $jwt) {}
 
-    public function register(RegisterRequest $request): JsonResponse
-    {
-        $user = User::create([
-            'name' => $request->string('name'),
-            'email' => $request->string('email'),
-            'password' => $request->string('password'),
-            'position' => $request->input('position'),
-            'role' => $request->input('role', UserRole::Viewer->value),
-        ]);
-
-        return $this->tokenResponse($user, 201);
-    }
-
     public function login(LoginRequest $request): JsonResponse
     {
-        $user = User::where('email', $request->string('email'))->first();
+        $user = User::where('username', $request->string('username'))->first();
 
         if (! $user || ! Hash::check($request->string('password'), $user->password)) {
             throw ValidationException::withMessages([
-                'email' => ['Неверный email или пароль.'],
+                'username' => ['Неверный логин или пароль.'],
             ]);
         }
 

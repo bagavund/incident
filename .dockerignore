@@ -1,0 +1,36 @@
+# VCS / editors
+.git
+.gitignore
+.claude
+**/.claude
+.vscode
+.idea
+
+# Node
+node_modules
+**/node_modules
+dist
+*.tsbuildinfo
+
+# PHP
+backend/vendor
+backend/node_modules
+
+# Local env & data (regenerated inside the container)
+**/.env
+**/.env.backup
+backend/database/database.sqlite
+backend/storage/logs/*.log
+backend/.phpunit.result.cache
+backend/.phpunit.cache
+
+# Compiled caches generated with dev deps present — regenerated on boot
+backend/bootstrap/cache/*.php
+
+# Prebuilt frontend (rebuilt by the frontend stage)
+backend/public/assets
+backend/public/hot
+
+# Docs / misc
+*.md
+!backend/README.md

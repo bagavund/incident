@@ -46,6 +46,27 @@ final class Duration
         return $base->copy()->setTime((int) $m[1], (int) $m[2]);
     }
 
+    /**
+     * Resolves a "HH:MM" clock time into a full timestamp: anchored to $base's
+     * calendar day, then rolled forward whole days until it is not earlier than
+     * $notBefore. Lets a sequence of times that wraps past midnight stay
+     * monotonic without the caller tracking day offsets.
+     */
+    public static function resolveClock(?CarbonInterface $base, ?string $time, ?CarbonInterface $notBefore = null): ?CarbonInterface
+    {
+        $at = self::anchorTime($base, $time);
+
+        if ($at === null || $notBefore === null) {
+            return $at;
+        }
+
+        while ($at->lessThan($notBefore)) {
+            $at = $at->addDay();
+        }
+
+        return $at;
+    }
+
     /** @return array{minutes:int|null,human:string|null} */
     public static function payload(?int $minutes): array
     {

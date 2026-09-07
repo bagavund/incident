@@ -26,8 +26,11 @@ export default function App() {
 
 /** Пока не залогинены — экран входа; бэкенд требует JWT на все эндпоинты. */
 function Gate() {
-  const { token } = useAuth();
+  const { token, restoring } = useAuth();
   if (!token) return <Login />;
+  // Токен есть, но кто мы — ещё выясняем у /auth/me: показывать экраны рано,
+  // иначе они на миг отрисуются с правами наблюдателя.
+  if (restoring) return <ScreenFallback />;
 
   return (
     <StoreProvider>
@@ -50,9 +53,13 @@ function ScreenFallback() {
 
 function Shell() {
   const { incidents, loading, error } = useStore();
-  const { logout } = useAuth();
+  const { logout, isAdmin } = useAuth();
   const path = usePath();
-  const { screen, openId } = parsePath(path);
+  const parsed = parsePath(path);
+  // Администрирование доступно только админу — бэкенд всё равно ответит 403,
+  // поэтому не показываем экран и не даём на него уйти по прямой ссылке.
+  const screen = !isAdmin && parsed.screen === 'admin' ? 'dashboard' : parsed.screen;
+  const openId = parsed.openId;
   const [pendingFilter, setPendingFilter] = useState<Partial<IncidentFilters> | null>(null);
 
   const goto = (s: Screen) => {

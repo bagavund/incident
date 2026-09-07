@@ -2,12 +2,12 @@
 
 namespace Database\Seeders;
 
-use App\Enums\IncidentSla;
 use App\Enums\IncidentStatus;
 use App\Enums\TimelineKind;
 use App\Models\Incident;
 use App\Models\Service;
 use App\Models\User;
+use App\Services\SlaEvaluator;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Seeder;
 
@@ -47,8 +47,6 @@ class IncidentSeeder extends Seeder
         'Фоновые задачи выполнялись с задержкой, данные обновлялись с опозданием.',
     ];
 
-    private const ON_DUTY = ['Иванов Иван', 'Петрова Анна', 'Сидоров Пётр', 'Кузнецова Мария'];
-
     private const CRITICALITIES = ['Критичный', 'Важный', 'Второстепенный'];
 
     /** @var list<array{0:string,1:string,2:string,3:bool,4:string}> title, service, type, resolved, detected_at */
@@ -83,7 +81,8 @@ class IncidentSeeder extends Seeder
 
     public function run(): void
     {
-        $engineer = User::where('email', 'engineer@ims.local')->first();
+        $admin = User::where('username', 'admin')->first();
+        $onDutyUsers = User::whereIn('username', array_keys(UserSeeder::ON_DUTY))->get()->values();
         $services = Service::pluck('id', 'name');
 
         // Шаблоны датированы «2026-06-...»; переносим их так, чтобы самый свежий
@@ -112,12 +111,13 @@ class IncidentSeeder extends Seeder
             $incident = Incident::create([
                 'code' => $code,
                 'title' => $title,
-                'created_by' => $engineer?->id,
+                'created_by' => $admin?->id,
                 'type' => $type,
                 'criticality' => self::CRITICALITIES[$seed % count(self::CRITICALITIES)],
                 'status' => $resolvedAt ? IncidentStatus::Published : IncidentStatus::Draft,
-                'sla' => $seed % 5 === 0 ? IncidentSla::Breached : IncidentSla::Met,
-                'on_duty_name' => self::ON_DUTY[$seed % count(self::ON_DUTY)],
+                'on_duty_user_id' => $onDutyUsers->isNotEmpty()
+                    ? $onDutyUsers[$seed % $onDutyUsers->count()]->id
+                    : null,
                 'started_at' => $started,
                 'detected_at' => $detected,
                 'resolved_at' => $resolvedAt,
@@ -146,9 +146,13 @@ class IncidentSeeder extends Seeder
                     'position' => $position,
                     'kind' => $kind,
                     'action' => $action,
-                    'time' => $at->format('H:i'),
+                    'occurred_at' => $at,
                 ]);
             }
+
+            // Тот же вердикт, что выставит API на любом сохранении: считать его
+            // можно только после того, как шаг "handed_off" уже создан.
+            $incident->update(['sla' => app(SlaEvaluator::class)->for($incident->fresh('timelineSteps'))]);
         }
     }
 }

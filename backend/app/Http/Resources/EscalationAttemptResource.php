@@ -2,7 +2,7 @@
 
 namespace App\Http\Resources;
 
-use App\Enums\Concerns\LabeledEnum;
+use App\Http\Resources\Concerns\SerializesEnum;
 use App\Models\EscalationAttempt;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -10,6 +10,8 @@ use Illuminate\Http\Resources\Json\JsonResource;
 /** @mixin EscalationAttempt */
 class EscalationAttemptResource extends JsonResource
 {
+    use SerializesEnum;
+
     public function toArray(Request $request): array
     {
         return [
@@ -22,11 +24,5 @@ class EscalationAttemptResource extends JsonResource
             'result' => $this->enum($this->result),
             'attempts' => $this->attempts,
         ];
-    }
-
-    /** @param  LabeledEnum&\BackedEnum  $enum */
-    protected function enum($enum): array
-    {
-        return ['value' => $enum->value, 'label' => $enum->label()];
     }
 }

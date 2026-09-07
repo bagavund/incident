@@ -1,13 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { AlertCircle, ChevronDown, ChevronUp, Link2, Minus, Plus, Save, Trash2, Upload, User, X } from 'lucide-react';
+import { AlertCircle, ChevronDown, ChevronUp, Link2, Minus, Plus, Save, Trash2, Upload, X } from 'lucide-react';
 import {
-  computeSla,
   defaultStartInput,
   emptyTimeline,
   fromInputDT,
-  nextIncidentCode,
   toInputDT,
-  validateTimelineOrder,
   withTime,
 } from '../data';
 import { ApiError } from '../lib/api';
@@ -20,6 +17,7 @@ import {
   TIMELINE_KINDS,
   type EscalationAttempt,
   type FullIncident,
+  type IncidentDraft,
   type TimelineKind,
   type TimelineStep,
 } from '../types';
@@ -55,20 +53,20 @@ export function IncidentForm({
   onSaved: (id: string) => void;
   onCancel?: () => void;
 }) {
-  const { incidents, addIncident, updateIncident, services: serviceOptions, zones: zoneOptions, incidentTypes, criticalities } = useStore();
+  const { addIncident, updateIncident, services: serviceOptions, zones: zoneOptions, incidentTypes, criticalities, users } = useStore();
 
   const [title, setTitle] = useState(initial?.title ?? '');
   const [type, setType] = useState(initial?.type ?? '');
   const [criticality, setCriticality] = useState(initial?.criticality ?? '');
   const [activeServices, setActiveServices] = useState<string[]>(initial?.services ?? []);
-  const [onDutyName, setOnDutyName] = useState(initial?.onDutyName ?? '');
+  const [onDutyUserId, setOnDutyUserId] = useState<number | ''>(initial?.onDuty?.id ?? '');
   const [startedAtInput, setStartedAtInput] = useState(
     initial ? toInputDT(initial.startedAt) : defaultStartInput(),
   );
   const [resolvedAtInput, setResolvedAtInput] = useState(initial?.resolvedAt ? toInputDT(initial.resolvedAt) : '');
   const [stub, setStub] = useState(!!initial?.stub);
   const [stubOn, setStubOn] = useState(initial?.stub?.on ?? '');
-  const [stubOff, setStubOff] = useState(initial?.stub?.off === '—' ? '' : initial?.stub?.off ?? '');
+  const [stubOff, setStubOff] = useState(initial?.stub?.off ?? '');
   const [zoneChecks, setZoneChecks] = useState<Record<string, boolean>>(() =>
     Object.fromEntries((initial?.zones ?? []).map((z) => [z, true])),
   );
@@ -87,20 +85,20 @@ export function IncidentForm({
    * не ломается от двойного вызова эффектов в React.StrictMode в dev-режиме.
    */
   const baselineRef = useRef({
-    title, type, criticality, activeServices, onDutyName, startedAtInput, resolvedAtInput,
+    title, type, criticality, activeServices, onDutyUserId, startedAtInput, resolvedAtInput,
     stub, stubOn, stubOff, zoneChecks, steps, escalations, cause, impact, taskLink,
   });
   useEffect(() => {
     const b = baselineRef.current;
     dirtyRef.current =
       title !== b.title || type !== b.type || criticality !== b.criticality ||
-      activeServices !== b.activeServices || onDutyName !== b.onDutyName ||
+      activeServices !== b.activeServices || onDutyUserId !== b.onDutyUserId ||
       startedAtInput !== b.startedAtInput || resolvedAtInput !== b.resolvedAtInput ||
       stub !== b.stub || stubOn !== b.stubOn || stubOff !== b.stubOff ||
       zoneChecks !== b.zoneChecks || steps !== b.steps || escalations !== b.escalations ||
       cause !== b.cause || impact !== b.impact || taskLink !== b.taskLink;
   }, [
-    title, type, criticality, activeServices, onDutyName, startedAtInput, resolvedAtInput,
+    title, type, criticality, activeServices, onDutyUserId, startedAtInput, resolvedAtInput,
     stub, stubOn, stubOff, zoneChecks, steps, escalations, cause, impact, taskLink,
   ]);
 
@@ -215,19 +213,13 @@ export function IncidentForm({
       !type ||
       !criticality ||
       !startedAtInput ||
-      !onDutyName.trim()
+      !onDutyUserId
     ) {
       setError('Заполните обязательные поля: название, сервис, тип, критичность, дата начала, дежурный.');
       return;
     }
     if (!asDraft && !cause.trim()) {
       setError('Для публикации укажите причину инцидента.');
-      return;
-    }
-
-    const timelineError = validateTimelineOrder(steps);
-    if (timelineError) {
-      setError(timelineError);
       return;
     }
 
@@ -243,20 +235,17 @@ export function IncidentForm({
 
     const activeZones = Object.keys(zoneChecks).filter((z) => zoneChecks[z]);
 
-    const draft: FullIncident = {
-      id: initial?.id ?? nextIncidentCode(incidents),
+    const draft: IncidentDraft = {
       title: title.trim(),
       status: asDraft ? 'draft' : 'published',
       services: activeServices,
       type,
       criticality,
-      sla: computeSla(criticality, startedAt, resolvedAt),
-      onDutyName: onDutyName.trim(),
-      createdAt: initial?.createdAt ?? detectedAt,
+      onDutyUserId: onDutyUserId || null,
       startedAt,
       detectedAt,
       resolvedAt,
-      stub: stub ? { on: stubOn, off: stubOff || '—' } : null,
+      stub: stub ? { on: stubOn, off: stubOff || null } : null,
       cause: cause.trim(),
       impact: impact.trim(),
       taskLink: taskLink.trim(),
@@ -326,15 +315,19 @@ export function IncidentForm({
               </div>
               <div className="sm:col-span-2">
                 <Field label="Дежурный" required>
-                  <div className="relative">
-                    <User size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600" />
-                    <Input
-                      value={onDutyName}
-                      onChange={(e) => setOnDutyName(e.target.value)}
-                      placeholder="Фамилия Имя"
-                      className="pl-9"
-                    />
-                  </div>
+                  <Select
+                    value={onDutyUserId}
+                    onChange={(e) => setOnDutyUserId(e.target.value ? Number(e.target.value) : '')}
+                  >
+                    <option value="" disabled>
+                      Выберите дежурного
+                    </option>
+                    {users.map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.name}
+                      </option>
+                    ))}
+                  </Select>
                 </Field>
               </div>
               <Field label="Дата и время начала" required>

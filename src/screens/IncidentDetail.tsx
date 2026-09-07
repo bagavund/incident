@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, ExternalLink, Pencil, PhoneCall, Trash2 } from 'lucide-react';
-import { computeMetrics, escalationSummary, stubDuration } from '../data';
+import { useAuth } from '../auth';
+import { apiGet } from '../lib/api';
 import { useStore } from '../store';
 import type { TimelineKind } from '../types';
 import { Badge, Button, Card, CardHeader, cn, InfoHint, SlaBadge } from '../components/ui';
@@ -23,11 +24,12 @@ const ESCALATION_RESULT_COLOR: Record<string, 'neon' | 'red' | 'blue'> = {
 
 export function IncidentDetail({ id, onBack }: { id: string; onBack: () => void }) {
   const { getById, removeIncident } = useStore();
+  const { canEditIncident } = useAuth();
   const [editing, setEditing] = useState(false);
   const incident = useMemo(() => getById(id), [getById, id]);
-  const metrics = useMemo(() => (incident ? computeMetrics(incident) : null), [incident]);
-  const escalation = useMemo(() => (incident ? escalationSummary(incident) : null), [incident]);
-  const stub = useMemo(() => (incident ? stubDuration(incident) : null), [incident]);
+  const metrics = incident?.metrics ?? null;
+  const escalation = metrics?.escalation ?? null;
+  const stub = metrics?.stubDuration ?? null;
 
   const handleDelete = async () => {
     if (!incident) return;
@@ -86,16 +88,20 @@ export function IncidentDetail({ id, onBack }: { id: string; onBack: () => void 
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button icon={<Pencil size={14} />} onClick={() => setEditing(true)}>
-            Редактировать
-          </Button>
-          <Button
-            icon={<Trash2 size={14} />}
-            onClick={handleDelete}
-            className="border-crit/30 text-crit hover:border-crit/60 hover:bg-crit/[0.08] hover:text-crit"
-          >
-            Удалить
-          </Button>
+          {canEditIncident(incident) && (
+            <>
+              <Button icon={<Pencil size={14} />} onClick={() => setEditing(true)}>
+                Редактировать
+              </Button>
+              <Button
+                icon={<Trash2 size={14} />}
+                onClick={handleDelete}
+                className="border-crit/30 text-crit hover:border-crit/60 hover:bg-crit/[0.08] hover:text-crit"
+              >
+                Удалить
+              </Button>
+            </>
+          )}
           {incident.taskLink && (
             <a
               href={incident.taskLink}
@@ -196,10 +202,9 @@ export function IncidentDetail({ id, onBack }: { id: string; onBack: () => void 
           <Card>
             <CardHeader title="Тайминги" />
             <dl className="divide-y divide-white/[0.05] px-5 pb-2 pt-1 text-[13px]">
-              <Row k="Дежурный" v={incident.onDutyName || '—'} />
+              <Row k="Дежурный" v={incident.onDuty?.name || '—'} />
               <Row k="Начало инцидента" v={incident.startedAt} />
               <Row k="Обнаружен" v={incident.detectedAt} />
-              <Row k="Решён" v={incident.resolvedAt ?? 'в работе'} />
             </dl>
           </Card>
 
@@ -224,10 +229,109 @@ export function IncidentDetail({ id, onBack }: { id: string; onBack: () => void 
               ))}
             </div>
           </Card>
+
+          <AuditLog incidentId={incident.id} />
         </div>
       </div>
     </div>
   );
+}
+
+interface AuditEntry {
+  id: number;
+  action: 'created' | 'updated' | 'deleted';
+  user: { id: number; name: string } | null;
+  changes: Record<string, [unknown, unknown]> | null;
+  created_at: string;
+}
+
+/** Подпись поля в записи журнала — то же название, что и в форме инцидента. */
+const AUDIT_FIELD_LABELS: Record<string, string> = {
+  title: 'Название',
+  type: 'Тип',
+  criticality: 'Критичность',
+  status: 'Статус',
+  sla: 'SLA',
+  on_duty_user_id: 'Дежурный',
+  started_at: 'Начало инцидента',
+  detected_at: 'Обнаружен',
+  resolved_at: 'Решён',
+  stub_installed: 'Заглушка установлена',
+  stub_on: 'Заглушка: установлена в',
+  stub_off: 'Заглушка: снята в',
+  cause: 'Причина',
+  impact: 'Влияние',
+  task_link: 'Ссылка на задачу',
+  zones: 'Зона ответственности',
+  services: 'Сервисы',
+};
+
+const AUDIT_ACTION_LABEL: Record<AuditEntry['action'], string> = {
+  created: 'Создан',
+  updated: 'Изменён',
+  deleted: 'Удалён',
+};
+
+/** Журнал изменений инцидента — кто и что поменял. Грузится лениво, при открытии карточки. */
+function AuditLog({ incidentId }: { incidentId: string }) {
+  const [entries, setEntries] = useState<AuditEntry[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setEntries(null);
+    setError(null);
+
+    apiGet<{ data: AuditEntry[] }>(`/incidents/${incidentId}/audit`)
+      .then((res) => {
+        if (!cancelled) setEntries(res.data);
+      })
+      .catch(() => {
+        if (!cancelled) setError('Не удалось загрузить журнал изменений.');
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [incidentId]);
+
+  return (
+    <Card>
+      <CardHeader title="История изменений" />
+      <div className="space-y-3 px-5 pb-5 pt-1 text-[13px]">
+        {error && <p className="text-xs text-crit">{error}</p>}
+        {!error && entries === null && <p className="text-xs text-gray-600">Загрузка…</p>}
+        {entries?.length === 0 && <p className="text-xs text-gray-600">Изменений не было</p>}
+        {entries?.map((entry) => (
+          <div key={entry.id} className="border-l-2 border-white/10 pl-3">
+            <p className="text-gray-300">
+              <span className="font-medium">{AUDIT_ACTION_LABEL[entry.action]}</span>
+              {entry.user && <span className="text-gray-500"> · {entry.user.name}</span>}
+            </p>
+            <p className="font-mono text-[11px] text-gray-600">
+              {new Date(entry.created_at).toLocaleString('ru-RU')}
+            </p>
+            {entry.changes && (
+              <ul className="mt-1 space-y-0.5 text-xs text-gray-500">
+                {Object.entries(entry.changes).map(([field, [oldValue, newValue]]) => (
+                  <li key={field}>
+                    <span className="text-gray-400">{AUDIT_FIELD_LABELS[field] ?? field}:</span>{' '}
+                    {formatAuditValue(oldValue)} → {formatAuditValue(newValue)}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+function formatAuditValue(value: unknown): string {
+  if (value === null || value === undefined || value === '') return '—';
+  if (Array.isArray(value)) return value.length ? value.join(', ') : '—';
+  return String(value);
 }
 
 function Metric({ label, value, hint }: { label: string; value: string | null; hint?: string }) {

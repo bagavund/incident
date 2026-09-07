@@ -38,7 +38,7 @@ export function Incidents({
     const to = f.to ? new Date(`${f.to}T23:59`) : null;
 
     return incidents.filter((i) => {
-      if (needle && !`${i.id} ${i.title} ${i.services.join(' ')} ${i.cause} ${i.onDutyName}`.toLowerCase().includes(needle)) return false;
+      if (needle && !`${i.id} ${i.title} ${i.services.join(' ')} ${i.cause} ${i.onDuty?.name ?? ''}`.toLowerCase().includes(needle)) return false;
       if (f.service && !i.services.includes(f.service)) return false;
       if (f.type && i.type !== f.type) return false;
       if (f.sla && i.sla !== f.sla) return false;
@@ -178,7 +178,7 @@ export function Incidents({
                   <td className="whitespace-nowrap px-5 py-3">
                     <Badge color="gray">{i.type}</Badge>
                   </td>
-                  <td className="whitespace-nowrap px-5 py-3 text-gray-400">{i.onDutyName}</td>
+                  <td className="whitespace-nowrap px-5 py-3 text-gray-400">{i.onDuty?.name ?? '—'}</td>
                   <td className="whitespace-nowrap px-5 py-3 font-mono text-xs text-gray-400">
                     {i.createdAt}
                   </td>

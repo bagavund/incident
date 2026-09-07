@@ -1,42 +1,66 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { ApiError, apiDelete, apiGet, apiPost, apiPut } from './lib/api';
 import { mapIncident, mapIncidentToPayload, type ApiIncident } from './adapters';
-import type { FullIncident } from './types';
+import type { FullIncident, IncidentDraft, UserAccount, UserRole } from './types';
 
-interface LookupRow {
+/** Данные для создания учётки — заводит только администратор. */
+export interface NewUser {
+  name: string;
+  username: string;
+  password: string;
+  passwordConfirmation: string;
+  position: string;
+  role: UserRole;
+}
+
+export interface LookupRow {
   id: number;
   name: string;
+  /** Сколько инцидентов ссылаются на значение — считает сервер. */
   usage_count: number;
 }
 
-interface Store {
+/**
+ * Один справочник в том виде, в каком им пользуется экран администрирования.
+ * Мутации возвращают Promise и не глушат ошибки: сообщение с сервера («уже
+ * существует», «используется в N инцидентах», 403) показывает вызывающий экран.
+ */
+export interface LookupApi {
+  rows: LookupRow[];
+  add: (name: string) => Promise<void>;
+  rename: (index: number, name: string) => Promise<void>;
+  remove: (index: number) => Promise<void>;
+}
+
+export type LookupKey = 'services' | 'zones' | 'incidentTypes' | 'criticalities';
+
+export interface Store {
   incidents: FullIncident[];
   loading: boolean;
   error: string | null;
   getById: (id: string) => FullIncident | undefined;
-  addIncident: (data: FullIncident) => Promise<FullIncident>;
-  updateIncident: (id: string, data: FullIncident) => Promise<FullIncident>;
+  addIncident: (data: IncidentDraft) => Promise<FullIncident>;
+  updateIncident: (id: string, data: IncidentDraft) => Promise<FullIncident>;
   removeIncident: (id: string) => Promise<void>;
 
+  /** Названия значений — для выпадающих списков и чекбоксов в формах. */
   services: string[];
-  addService: (name: string) => void;
-  renameService: (index: number, name: string) => void;
-  removeService: (index: number) => void;
-
   zones: string[];
-  addZone: (name: string) => void;
-  renameZone: (index: number, name: string) => void;
-  removeZone: (index: number) => void;
-
   incidentTypes: string[];
-  addIncidentType: (name: string) => void;
-  renameIncidentType: (index: number, name: string) => void;
-  removeIncidentType: (index: number) => void;
-
   criticalities: string[];
-  addCriticality: (name: string) => void;
-  renameCriticality: (index: number, name: string) => void;
-  removeCriticality: (index: number) => void;
+
+  /** Полные строки справочников с CRUD — для экрана администрирования. */
+  lookups: Record<LookupKey, LookupApi>;
+
+  /** SLA — минуты на эскалацию (обнаружение → передача ответственным), порог общий для всех инцидентов. */
+  slaEscalationMinutes: number | null;
+  /** Меняет порог; сервер тут же пересчитывает вердикт по SLA у всех инцидентов, поэтому список перезагружается. */
+  updateSlaEscalationMinutes: (minutes: number) => Promise<void>;
+
+  /** Все учётки — выбор дежурного в форме инцидента и список в администрировании. */
+  users: UserAccount[];
+  /** Заводит учётку (админ-only на бэке); бросает ApiError, если логин занят или прав не хватает. */
+  addUser: (data: NewUser) => Promise<void>;
 }
 
 const StoreContext = createContext<Store | null>(null);
@@ -48,52 +72,39 @@ const StoreContext = createContext<Store | null>(null);
 function useLookupResource(endpoint: string) {
   const [rows, setRows] = useState<LookupRow[]>([]);
 
+  const byName = (a: LookupRow, b: LookupRow) => a.name.localeCompare(b.name, 'ru');
+
   const load = useCallback(async () => {
     const res = await apiGet<{ data: LookupRow[] }>(`/${endpoint}`);
     setRows(res.data);
   }, [endpoint]);
 
   const add = useCallback(
-    (name: string) => {
-      apiPost<{ data: LookupRow }>(`/${endpoint}`, { name })
-        .then((res) => setRows((r) => [...r, res.data].sort((a, b) => a.name.localeCompare(b.name, 'ru'))))
-        .catch((e) => {
-          if (!(e instanceof ApiError && e.status === 422)) console.error(e);
-        });
+    async (name: string) => {
+      const res = await apiPost<{ data: LookupRow }>(`/${endpoint}`, { name });
+      setRows((r) => [...r, res.data].sort(byName));
     },
     [endpoint],
   );
 
   const rename = useCallback(
-    (index: number, name: string) => {
-      setRows((current) => {
-        const row = current[index];
-        if (!row) return current;
-        apiPut<{ data: LookupRow }>(`/${endpoint}/${row.id}`, { name })
-          .then((res) => setRows((r) => r.map((x, i) => (i === index ? res.data : x))))
-          .catch((e) => {
-            if (!(e instanceof ApiError && e.status === 422)) console.error(e);
-          });
-        return current;
-      });
+    async (index: number, name: string) => {
+      const row = rows[index];
+      if (!row) return;
+      const res = await apiPut<{ data: LookupRow }>(`/${endpoint}/${row.id}`, { name });
+      setRows((r) => r.map((x, i) => (i === index ? res.data : x)).sort(byName));
     },
-    [endpoint],
+    [endpoint, rows],
   );
 
   const remove = useCallback(
-    (index: number) => {
-      setRows((current) => {
-        const row = current[index];
-        if (!row) return current;
-        apiDelete(`/${endpoint}/${row.id}`)
-          .then(() => setRows((r) => r.filter((_, i) => i !== index)))
-          .catch((e) => {
-            if (!(e instanceof ApiError && e.status === 409)) console.error(e);
-          });
-        return current;
-      });
+    async (index: number) => {
+      const row = rows[index];
+      if (!row) return;
+      await apiDelete(`/${endpoint}/${row.id}`);
+      setRows((r) => r.filter((_, i) => i !== index));
     },
-    [endpoint],
+    [endpoint, rows],
   );
 
   return { rows, load, add, rename, remove };
@@ -108,6 +119,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const zones = useLookupResource('zones');
   const incidentTypes = useLookupResource('incident-types');
   const criticalities = useLookupResource('criticalities');
+  const [slaEscalationMinutes, setSlaEscalationMinutes] = useState<number | null>(null);
+  const [users, setUsers] = useState<UserAccount[]>([]);
+
+  const loadUsers = useCallback(async () => {
+    const res = await apiGet<{ data: UserAccount[] }>('/users');
+    setUsers(res.data);
+  }, []);
+
+  const loadIncidents = useCallback(async () => {
+    const res = await apiGet<{ data: ApiIncident[] }>('/incidents?per_page=2000');
+    setIncidents(res.data.map(mapIncident));
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -116,9 +139,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       try {
         setLoading(true);
         setError(null);
-        await Promise.all([services.load(), zones.load(), incidentTypes.load(), criticalities.load()]);
-        const res = await apiGet<{ data: ApiIncident[] }>('/incidents?per_page=2000');
-        if (!cancelled) setIncidents(res.data.map(mapIncident));
+        const [, , , , slaSetting] = await Promise.all([
+          services.load(),
+          zones.load(),
+          incidentTypes.load(),
+          criticalities.load(),
+          apiGet<{ data: { escalation_minutes: number } }>('/sla-setting'),
+          loadUsers(),
+        ]);
+        if (!cancelled) setSlaEscalationMinutes(slaSetting.data.escalation_minutes);
+        await loadIncidents();
       } catch (e) {
         if (!cancelled) setError(e instanceof ApiError ? e.message : 'Не удалось загрузить данные с сервера.');
       } finally {
@@ -143,7 +173,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   );
 
   const addIncident = useCallback(
-    async (data: FullIncident) => {
+    async (data: IncidentDraft) => {
       const payload = mapIncidentToPayload(data, resolveServiceIds(data.services));
       const res = await apiPost<{ data: ApiIncident }>('/incidents', payload);
       const saved = mapIncident(res.data);
@@ -154,7 +184,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   );
 
   const updateIncident = useCallback(
-    async (id: string, data: FullIncident) => {
+    async (id: string, data: IncidentDraft) => {
       const payload = mapIncidentToPayload(data, resolveServiceIds(data.services));
       const res = await apiPut<{ data: ApiIncident }>(`/incidents/${id}`, payload);
       const saved = mapIncident(res.data);
@@ -169,6 +199,30 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setIncidents((list) => list.filter((i) => i.id !== id));
   }, []);
 
+  const addUser = useCallback(async (data: NewUser) => {
+    const res = await apiPost<{ data: UserAccount }>('/users', {
+      name: data.name,
+      username: data.username,
+      password: data.password,
+      password_confirmation: data.passwordConfirmation,
+      position: data.position || null,
+      role: data.role,
+    });
+    setUsers((list) => [...list, res.data].sort((a, b) => a.name.localeCompare(b.name, 'ru')));
+  }, []);
+
+  const updateSlaEscalationMinutes = useCallback(
+    async (minutes: number) => {
+      const res = await apiPut<{ data: { escalation_minutes: number } }>('/sla-setting', {
+        escalation_minutes: minutes,
+      });
+      setSlaEscalationMinutes(res.data.escalation_minutes);
+      // Сервер пересчитал вердикт по SLA у всех инцидентов — подтягиваем свежий список.
+      await loadIncidents();
+    },
+    [loadIncidents],
+  );
+
   const value: Store = {
     incidents,
     loading,
@@ -179,24 +233,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     removeIncident,
 
     services: services.rows.map((r) => r.name),
-    addService: services.add,
-    renameService: services.rename,
-    removeService: services.remove,
-
     zones: zones.rows.map((r) => r.name),
-    addZone: zones.add,
-    renameZone: zones.rename,
-    removeZone: zones.remove,
-
     incidentTypes: incidentTypes.rows.map((r) => r.name),
-    addIncidentType: incidentTypes.add,
-    renameIncidentType: incidentTypes.rename,
-    removeIncidentType: incidentTypes.remove,
-
     criticalities: criticalities.rows.map((r) => r.name),
-    addCriticality: criticalities.add,
-    renameCriticality: criticalities.rename,
-    removeCriticality: criticalities.remove,
+
+    lookups: { services, zones, incidentTypes, criticalities },
+
+    slaEscalationMinutes,
+    updateSlaEscalationMinutes,
+
+    users,
+    addUser,
   };
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

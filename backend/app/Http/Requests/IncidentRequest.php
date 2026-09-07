@@ -5,20 +5,27 @@ namespace App\Http\Requests;
 use App\Enums\EscalationChannel;
 use App\Enums\EscalationKind;
 use App\Enums\EscalationResult;
-use App\Enums\IncidentSla;
 use App\Enums\IncidentStatus;
 use App\Enums\TimelineKind;
-use App\Models\CustomFieldDefinition;
+use App\Models\Incident;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Support\Facades\Validator as ValidatorFacade;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\Validator;
 
 class IncidentRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->isEngineer() ?? false;
+        $user = $this->user();
+        if (! $user) {
+            return false;
+        }
+
+        // Создать инцидент может любой авторизованный (админ или дежурный);
+        // редактировать — только через IncidentPolicy (админ, либо дежурный,
+        // вписанный именно в этот инцидент).
+        $incident = $this->route('incident');
+
+        return $incident instanceof Incident ? $user->can('update', $incident) : true;
     }
 
     public function rules(): array
@@ -32,10 +39,10 @@ class IncidentRequest extends FormRequest
             'services.*' => ['integer', Rule::exists('services', 'id')],
             'type' => [$required, 'string', Rule::exists('incident_types', 'name')],
             'criticality' => [$required, 'string', Rule::exists('criticalities', 'name')],
-            'on_duty_name' => [$required, 'string', 'max:255'],
+            'on_duty_user_id' => [$required, 'integer', Rule::exists('users', 'id')],
 
+            // sla клиентом не задаётся — его выносит SlaEvaluator на сервере.
             'status' => ['nullable', Rule::enum(IncidentStatus::class)],
-            'sla' => ['nullable', Rule::enum(IncidentSla::class)],
 
             'started_at' => [$required, 'date'],
             'detected_at' => ['nullable', 'date'],
@@ -51,8 +58,6 @@ class IncidentRequest extends FormRequest
 
             'zones' => ['nullable', 'array'],
             'zones.*' => ['string', Rule::exists('zones', 'name')],
-
-            'custom_fields' => ['nullable', 'array'],
 
             'timeline' => ['nullable', 'array'],
             'timeline.*.id' => ['nullable', 'integer'],
@@ -72,37 +77,5 @@ class IncidentRequest extends FormRequest
             'escalations.*.attempts' => ['nullable', 'integer', 'min:1'],
             'escalations.*.position' => ['nullable', 'integer', 'min:0'],
         ];
-    }
-
-    public function withValidator(Validator $validator): void
-    {
-        $validator->after(function (Validator $v) {
-            if (! $this->has('custom_fields')) {
-                return;
-            }
-
-            $values = (array) $this->input('custom_fields', []);
-            $definitions = CustomFieldDefinition::query()->where('active', true)->get()->keyBy('key');
-
-            // Значение по неизвестному/архивному ключу — отклоняем, а не молча игнорируем.
-            foreach (array_keys($values) as $key) {
-                if (! $definitions->has($key)) {
-                    $v->errors()->add("custom_fields.{$key}", 'Неизвестное или архивное поле.');
-                }
-            }
-
-            foreach ($definitions as $key => $definition) {
-                $fieldValidator = ValidatorFacade::make(
-                    [$key => $values[$key] ?? null],
-                    [$key => $definition->valueRules()],
-                );
-
-                if ($fieldValidator->fails()) {
-                    foreach ($fieldValidator->errors()->get($key) as $message) {
-                        $v->errors()->add("custom_fields.{$key}", $message);
-                    }
-                }
-            }
-        });
     }
 }

@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\IncidentSla;
 use App\Enums\IncidentStatus;
 use App\Enums\TimelineKind;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -15,9 +16,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
     'code', 'title', 'created_by', 'type', 'criticality', 'status', 'sla',
-    'on_duty_name', 'started_at', 'detected_at', 'resolved_at',
+    'on_duty_user_id', 'started_at', 'detected_at', 'resolved_at',
     'stub_installed', 'stub_on', 'stub_off',
-    'cause', 'impact', 'task_link', 'zones', 'custom_fields',
+    'cause', 'impact', 'task_link', 'zones',
 ])]
 class Incident extends Model
 {
@@ -33,7 +34,6 @@ class Incident extends Model
             'resolved_at' => 'datetime',
             'stub_installed' => 'boolean',
             'zones' => 'array',
-            'custom_fields' => 'array',
         ];
     }
 
@@ -55,6 +55,12 @@ class Incident extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
+    /** Дежурный, вписанный в этот инцидент — единственный, кроме админа, кто вправе его редактировать. */
+    public function onDuty(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'on_duty_user_id');
+    }
+
     /** @return HasMany<TimelineStep, $this> */
     public function timelineSteps(): HasMany
     {
@@ -67,9 +73,25 @@ class Incident extends Model
         return $this->hasMany(EscalationAttempt::class)->orderBy('position');
     }
 
+    /** @return HasMany<IncidentAudit, $this> */
+    public function audits(): HasMany
+    {
+        return $this->hasMany(IncidentAudit::class)->latest('created_at');
+    }
+
     public function stepOfKind(TimelineKind $kind): ?TimelineStep
     {
         return $this->timelineSteps->firstWhere('kind', $kind);
+    }
+
+    /**
+     * Момент передачи ответственным — timestamp шага "handed_off", уже
+     * привязанный к дате начала инцидента при сохранении (TimelineSync).
+     * Null, пока эскалации не было или шаг не заполнен.
+     */
+    public function handedOffAt(): ?CarbonInterface
+    {
+        return $this->stepOfKind(TimelineKind::HandedOff)?->occurred_at;
     }
 
     /**

@@ -33,9 +33,9 @@ class LookupTest extends TestCase
     }
 
     #[DataProvider('dictionaries')]
-    public function test_engineer_adds_a_value(string $prefix, string $model): void
+    public function test_admin_adds_a_value(string $prefix, string $model): void
     {
-        $this->actingAsEngineer()
+        $this->actingAsAdmin()
             ->postJson("/api/{$prefix}", ['name' => 'Новое значение'])
             ->assertCreated()
             ->assertJsonPath('data.name', 'Новое значение')
@@ -49,16 +49,16 @@ class LookupTest extends TestCase
     {
         $model::create(['name' => 'API Gateway']);
 
-        $this->actingAsEngineer()
+        $this->actingAsAdmin()
             ->postJson("/api/{$prefix}", ['name' => 'api gateway'])
             ->assertStatus(422)
             ->assertJsonValidationErrors(['name']);
     }
 
     #[DataProvider('dictionaries')]
-    public function test_viewer_cannot_write(string $prefix, string $model): void
+    public function test_on_duty_cannot_write(string $prefix, string $model): void
     {
-        $this->actingAsViewer()
+        $this->actingAsOnDuty()
             ->postJson("/api/{$prefix}", ['name' => 'x'])
             ->assertForbidden();
     }
@@ -69,7 +69,7 @@ class LookupTest extends TestCase
         $model::create(['name' => 'Значение А']);
         $b = $model::create(['name' => 'Значение Б']);
 
-        $this->actingAsEngineer()
+        $this->actingAsAdmin()
             ->putJson("/api/{$prefix}/{$b->id}", ['name' => 'значение а'])
             ->assertStatus(422)
             ->assertJsonValidationErrors(['name']);
@@ -80,7 +80,7 @@ class LookupTest extends TestCase
         $service = Service::factory()->create();
         Incident::factory()->create()->services()->attach($service);
 
-        $this->actingAsEngineer()
+        $this->actingAsAdmin()
             ->deleteJson("/api/services/{$service->id}")
             ->assertStatus(409);
 
@@ -92,7 +92,7 @@ class LookupTest extends TestCase
         $zone = Zone::factory()->create(['name' => 'Backend']);
         Incident::factory()->create(['zones' => ['Backend']]);
 
-        $this->actingAsEngineer()
+        $this->actingAsAdmin()
             ->deleteJson("/api/zones/{$zone->id}")
             ->assertStatus(409);
     }
@@ -102,30 +102,68 @@ class LookupTest extends TestCase
         $type = IncidentType::factory()->create();
         Incident::factory()->create(['type' => $type->name]);
 
-        $this->actingAsEngineer()
+        $this->actingAsAdmin()
             ->deleteJson("/api/incident-types/{$type->id}")
             ->assertStatus(409);
+    }
+
+    public function test_renaming_a_zone_cascades_into_incidents(): void
+    {
+        $zone = Zone::factory()->create(['name' => 'Backend']);
+        $incident = Incident::factory()->create(['zones' => ['Backend', 'DBA']]);
+
+        $this->actingAsAdmin()
+            ->putJson("/api/zones/{$zone->id}", ['name' => 'Бэкенд'])
+            ->assertOk()
+            ->assertJsonPath('data.usage_count', 1);
+
+        $this->assertSame(['Бэкенд', 'DBA'], $incident->fresh()->zones);
+    }
+
+    public function test_renaming_an_incident_type_cascades_into_incidents(): void
+    {
+        $type = IncidentType::factory()->create(['name' => 'Внешняя']);
+        $incident = Incident::factory()->create(['type' => 'Внешняя']);
+
+        $this->actingAsAdmin()
+            ->putJson("/api/incident-types/{$type->id}", ['name' => 'Внешний сбой'])
+            ->assertOk()
+            ->assertJsonPath('data.usage_count', 1);
+
+        $this->assertSame('Внешний сбой', $incident->fresh()->type);
+    }
+
+    public function test_renaming_a_criticality_cascades_into_incidents(): void
+    {
+        $criticality = Criticality::factory()->create(['name' => 'Важный']);
+        $incident = Incident::factory()->create(['criticality' => 'Важный']);
+
+        $this->actingAsAdmin()
+            ->putJson("/api/criticalities/{$criticality->id}", ['name' => 'Высокий'])
+            ->assertOk();
+
+        $this->assertSame('Высокий', $incident->fresh()->criticality);
     }
 
     public function test_unused_value_can_be_deleted(): void
     {
         $zone = Zone::factory()->create();
 
-        $this->actingAsEngineer()
+        $this->actingAsAdmin()
             ->deleteJson("/api/zones/{$zone->id}")
             ->assertNoContent();
 
         $this->assertDatabaseMissing('zones', ['id' => $zone->id]);
     }
 
-    private function actingAsEngineer(): static
+    private function actingAsAdmin(): static
     {
-        return $this->withToken($this->tokenFor(User::factory()->engineer()->create()));
+        return $this->withToken($this->tokenFor(User::factory()->admin()->create()));
     }
 
-    private function actingAsViewer(): static
+    private function actingAsOnDuty(): static
     {
-        return $this->withToken($this->tokenFor(User::factory()->viewer()->create()));
+        return $this->withToken($this->tokenFor(User::factory()->onDuty()->create()));
     }
 
     private function tokenFor(User $user): string

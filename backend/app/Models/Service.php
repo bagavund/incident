@@ -2,13 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\LookupValue;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 #[Fillable(['name'])]
-class Service extends Model
+class Service extends Model implements LookupValue
 {
     use HasFactory;
 
@@ -21,5 +22,11 @@ class Service extends Model
     public function usageCount(): int
     {
         return $this->incidents()->count();
+    }
+
+    /** Инциденты ссылаются на сервис через pivot по id — переименование ничего не ломает. */
+    public function renameUsagesTo(string $newName): void
+    {
+        // no-op
     }
 }

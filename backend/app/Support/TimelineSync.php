@@ -19,12 +19,22 @@ final class TimelineSync
     {
         $keptIds = [];
 
+        // Время шага приходит как "HH:MM"; привязываем его к дню начала инцидента
+        // и переносим на следующие сутки, если оно ушло назад относительно
+        // предыдущего заполненного шага — чтобы ночные инциденты не «схлопывались».
+        $cursor = $incident->started_at;
+
         foreach (array_values($steps) as $position => $raw) {
+            $occurredAt = Duration::resolveClock($incident->started_at, $raw['time'] ?? null, $cursor);
+            if ($occurredAt !== null) {
+                $cursor = $occurredAt;
+            }
+
             $attributes = [
                 'position' => $raw['position'] ?? $position,
                 'kind' => $raw['kind'] ?? TimelineKind::HandedOff->value,
                 'action' => $raw['action'] ?? null,
-                'time' => $raw['time'] ?? null,
+                'occurred_at' => $occurredAt,
                 'custom' => (bool) ($raw['custom'] ?? false),
             ];
 

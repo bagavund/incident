@@ -27,32 +27,21 @@ class UserFactory extends Factory
     {
         return [
             'name' => fake()->name(),
-            'email' => fake()->unique()->safeEmail(),
-            'email_verified_at' => now(),
+            'username' => fake()->unique()->userName(),
             'password' => static::$password ??= Hash::make('password'),
             'remember_token' => Str::random(10),
-            'role' => UserRole::Viewer,
+            'role' => UserRole::OnDuty,
             'position' => null,
         ];
     }
 
-    /**
-     * Indicate that the model's email address should be unverified.
-     */
-    public function unverified(): static
+    public function admin(): static
     {
-        return $this->state(fn (array $attributes) => [
-            'email_verified_at' => null,
-        ]);
+        return $this->state(fn () => ['role' => UserRole::Admin]);
     }
 
-    public function engineer(): static
+    public function onDuty(): static
     {
-        return $this->state(fn () => ['role' => UserRole::Engineer]);
-    }
-
-    public function viewer(): static
-    {
-        return $this->state(fn () => ['role' => UserRole::Viewer]);
+        return $this->state(fn () => ['role' => UserRole::OnDuty]);
     }
 }

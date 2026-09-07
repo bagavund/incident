@@ -17,6 +17,17 @@ export function setToken(token: string | null): void {
   }
 }
 
+/**
+ * Реакция на 401: токен протух или отозван. Вешает AuthProvider, чтобы любой
+ * запрос из любого экрана возвращал пользователя на форму входа, а не оставлял
+ * его на вечном экране ошибки.
+ */
+let onUnauthorized: (() => void) | null = null;
+
+export function setUnauthorizedHandler(fn: (() => void) | null): void {
+  onUnauthorized = fn;
+}
+
 export class ApiError extends Error {
   status: number;
   errors: Record<string, string[]> | null;
@@ -45,6 +56,10 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
   const body = await res.json().catch(() => null);
 
   if (!res.ok) {
+    // Логин отвечает 422 на неверную пару email/пароль, поэтому 401 здесь —
+    // всегда именно непригодный токен.
+    if (res.status === 401) onUnauthorized?.();
+
     const message = body?.message ?? `Ошибка запроса (${res.status})`;
     throw new ApiError(res.status, message, body?.errors ?? null);
   }

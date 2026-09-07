@@ -14,27 +14,27 @@ class AuthTest extends TestCase
 
     public function test_login_returns_a_token_and_user(): void
     {
-        User::factory()->engineer()->create([
-            'email' => 'eng@example.com',
+        User::factory()->admin()->create([
+            'username' => 'vkomlev',
             'password' => 'secret123',
         ]);
 
         $response = $this->postJson('/api/auth/login', [
-            'email' => 'eng@example.com',
+            'username' => 'vkomlev',
             'password' => 'secret123',
         ]);
 
         $response->assertOk()
             ->assertJsonStructure(['token', 'token_type', 'expires_in', 'user' => ['id', 'role']])
-            ->assertJsonPath('user.role', UserRole::Engineer->value);
+            ->assertJsonPath('user.role', UserRole::Admin->value);
     }
 
     public function test_login_fails_with_wrong_password(): void
     {
-        User::factory()->create(['email' => 'a@example.com', 'password' => 'secret123']);
+        User::factory()->create(['username' => 'someone', 'password' => 'secret123']);
 
         $this->postJson('/api/auth/login', [
-            'email' => 'a@example.com',
+            'username' => 'someone',
             'password' => 'nope',
         ])->assertStatus(422);
     }

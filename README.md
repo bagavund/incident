@@ -8,28 +8,55 @@
 Интерфейс минималистичный в духе iOS / Notion: тёмная тема, приглушённые
 границы, зелёный акцент точечно, моноширинный JetBrains Mono для чисел и времени.
 
-## Запуск
+## Запуск в Docker (одна команда)
+
+Нужен только Docker с Compose. Из корня проекта:
 
 ```bash
-# бэкенд
+docker compose up --build
+```
+
+Собирается фронт (Vite), ставятся зависимости бэкенда, применяются миграции и
+сиды — всё в одном контейнере (PHP 8.3 + Apache). Приложение и API на одном
+адресе: **http://localhost:8000**. База (SQLite) живёт в томе `ims-db` и
+переживает пересборку; выключить — `docker compose down`, снести базу —
+`docker compose down -v`.
+
+Тестовые учётки (вход по логину, пароль у всех `password`):
+`admin` — администратор (полный доступ), `ivanov` / `petrova` / `sidorov` /
+`kuznecova` — дежурные (создают инциденты, правят только свои).
+
+## Запуск без Docker
+
+Один раз — установка зависимостей и база:
+
+```bash
 cd backend
 composer install && cp .env.example .env
 php artisan key:generate          # JWT_SECRET впишите в .env вручную
 php artisan migrate --seed
-php artisan serve                 # http://127.0.0.1:8000
-
-# фронтенд (в другом терминале)
 cd ..
 npm install
 cp .env.example .env              # VITE_API_URL, если бэкенд не на :8000
-npm run dev                       # http://localhost:5173
 ```
 
-Тестовые учётки: `engineer@ims.local` / `viewer@ims.local`, пароль `password`.
+Дальше — каждый раз одной командой из корня проекта (поднимает и бэкенд
+на :8000, и фронтенд на :5173 сразу):
 
-> Экраны сейчас работают на моках из [src/data.ts](src/data.ts). Типизированный
-> клиент к API — [src/lib/api.ts](src/lib/api.ts); перевод экранов на реальные
-> запросы — следующий шаг.
+```bash
+npm run dev
+```
+
+Поднять их по отдельности (например, в разных терминалах) по-прежнему можно:
+`npm run dev:backend` и `npm run dev:frontend`.
+
+Тестовые учётки (вход по логину, пароль у всех `password`): `admin` —
+администратор (полный доступ: любой инцидент, справочники, SLA, пользователи),
+`ivanov` / `petrova` / `sidorov` / `kuznecova` — дежурные (создают инциденты,
+редактируют и удаляют только те, где вписаны сами).
+
+> Все экраны работают на реальном API. Клиент — [src/lib/api.ts](src/lib/api.ts),
+> преобразование форматов — [src/adapters.ts](src/adapters.ts).
 
 ## Экраны (переключение через сайдбар)
 
@@ -57,6 +84,8 @@ src/
   components/Sidebar.tsx
   screens/            — Dashboard, Incidents, IncidentDetail, CreateIncident
   lib/api.ts          — типизированный клиент к бэкенду
-  data.ts             — моковые данные
+  adapters.ts         — API-формат ⇄ модель экранов
+  auth.tsx · store.tsx — сессия и загруженные данные
+  data.ts             — форматы дат, валидация хронологии, расчёты по эскалациям
   types.ts · App.tsx
 ```

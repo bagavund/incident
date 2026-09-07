@@ -1,12 +1,13 @@
-import { createContext, useCallback, useContext, useState, type ReactNode } from 'react';
-import { apiPost, getToken, setToken } from './lib/api';
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
+import { apiGet, apiPost, getToken, setToken, setUnauthorizedHandler } from './lib/api';
+import type { UserRole } from './types';
 
 interface AuthUser {
   id: number;
   name: string;
-  email: string;
+  username: string;
   position: string | null;
-  role: string;
+  role: UserRole;
   role_label: string;
 }
 
@@ -20,7 +21,13 @@ interface LoginResponse {
 interface Auth {
   token: string | null;
   user: AuthUser | null;
-  login: (email: string, password: string) => Promise<void>;
+  /** Сессия восстанавливается по сохранённому токену — до ответа /auth/me экраны не строим. */
+  restoring: boolean;
+  /** Полный доступ: правит любой инцидент, справочники, SLA, заводит пользователей. */
+  isAdmin: boolean;
+  /** Инцидент редактирует админ или дежурный, вписанный именно в него. */
+  canEditIncident: (incident: { onDuty: { id: number } | null }) => boolean;
+  login: (username: string, password: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -29,21 +36,66 @@ const AuthContext = createContext<Auth | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setTokenState] = useState<string | null>(() => getToken());
   const [user, setUser] = useState<AuthUser | null>(null);
-
-  const login = useCallback(async (email: string, password: string) => {
-    const res = await apiPost<LoginResponse>('/auth/login', { email, password });
-    setToken(res.token);
-    setTokenState(res.token);
-    setUser(res.user);
-  }, []);
+  const [restoring, setRestoring] = useState<boolean>(() => getToken() !== null);
 
   const logout = useCallback(() => {
     setToken(null);
     setTokenState(null);
     setUser(null);
+    setRestoring(false);
   }, []);
 
-  return <AuthContext.Provider value={{ token, user, login, logout }}>{children}</AuthContext.Provider>;
+  // Любой 401 (протухший или отозванный токен) возвращает на экран входа.
+  useEffect(() => {
+    setUnauthorizedHandler(logout);
+    return () => setUnauthorizedHandler(null);
+  }, [logout]);
+
+  // После перезагрузки страницы в localStorage есть только токен — кто мы, спрашиваем у сервера.
+  useEffect(() => {
+    if (!token || user) {
+      setRestoring(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    apiGet<{ data: AuthUser }>('/auth/me')
+      .then((res) => {
+        if (!cancelled) setUser(res.data);
+      })
+      .catch(() => {
+        if (!cancelled) logout();
+      })
+      .finally(() => {
+        if (!cancelled) setRestoring(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token, user, logout]);
+
+  const login = useCallback(async (username: string, password: string) => {
+    const res = await apiPost<LoginResponse>('/auth/login', { username, password });
+    setToken(res.token);
+    setTokenState(res.token);
+    setUser(res.user);
+    setRestoring(false);
+  }, []);
+
+  const isAdmin = user?.role === 'admin';
+
+  const canEditIncident = useCallback(
+    (incident: { onDuty: { id: number } | null }) => isAdmin || (!!user && incident.onDuty?.id === user.id),
+    [isAdmin, user],
+  );
+
+  return (
+    <AuthContext.Provider value={{ token, user, restoring, isAdmin, canEditIncident, login, logout }}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth(): Auth {

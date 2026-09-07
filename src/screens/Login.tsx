@@ -6,7 +6,7 @@ import { Button, Card, Field, Input } from '../components/ui';
 
 export function Login() {
   const { login } = useAuth();
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -16,7 +16,7 @@ export function Login() {
     setError(null);
     setLoading(true);
     try {
-      await login(email, password);
+      await login(username, password);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Не удалось войти. Проверьте соединение с сервером.');
     } finally {
@@ -38,13 +38,12 @@ export function Login() {
         </div>
 
         <form onSubmit={submit} className="space-y-4">
-          <Field label="Email" required>
+          <Field label="Логин" required>
             <Input
-              type="email"
               autoFocus
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="engineer@ims.local"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="vkomlev"
               required
             />
           </Field>
@@ -71,7 +70,7 @@ export function Login() {
         </form>
 
         <p className="mt-4 text-center text-[11px] text-gray-600">
-          Демо-доступ: engineer@ims.local / password
+          Учётку заводит администратор
         </p>
       </Card>
     </div>

@@ -2,12 +2,10 @@
 
 namespace App\Services;
 
-use App\Enums\CustomFieldType;
 use App\Enums\EscalationChannel;
 use App\Enums\EscalationResult;
 use App\Enums\IncidentSla;
 use App\Enums\TimelineKind;
-use App\Models\CustomFieldDefinition;
 use App\Models\Incident;
 use App\Models\IncidentType;
 use App\Models\Zone;
@@ -68,90 +66,6 @@ class AnalyticsService
         ];
     }
 
-    /**
-     * Generic chart data for a custom field: count of incidents per distinct value
-     * (select/checkbox/text/date), plus sum/avg for number fields. Powers the
-     * chart-builder widget on the dashboard — no hardcoded per-field logic.
-     */
-    public function customFieldChart(CustomFieldDefinition $field, int $days, ?string $from = null, ?string $to = null): array
-    {
-        $end = $to ? CarbonImmutable::parse($to) : CarbonImmutable::now();
-        $start = $from ? CarbonImmutable::parse($from) : $end->subDays($days);
-
-        $incidents = Incident::query()
-            ->whereBetween('detected_at', [$start, $end])
-            ->whereJsonContainsKey('custom_fields->'.$field->key)
-            ->get(['custom_fields']);
-
-        $values = $incidents
-            ->map(fn (Incident $i) => $i->custom_fields[$field->key] ?? null)
-            ->filter(fn ($v) => $v !== null && $v !== '');
-
-        $points = match ($field->type) {
-            CustomFieldType::Number => $this->numberBuckets($values),
-            CustomFieldType::Checkbox => $this->labeledCounts($values, ['1' => 'Да', '' => 'Нет']),
-            default => $this->valueCounts($values),
-        };
-
-        return [
-            'field' => [
-                'key' => $field->key,
-                'label' => $field->label,
-                'type' => $field->type->value,
-            ],
-            'points' => $points,
-        ];
-    }
-
-    /** @param  Collection<int,mixed>  $values */
-    private function valueCounts(Collection $values): array
-    {
-        return $values
-            ->countBy(fn ($v) => (string) $v)
-            ->map(fn (int $count, string $value) => ['name' => $value, 'value' => $count])
-            ->values()
-            ->sortByDesc('value')
-            ->values()
-            ->all();
-    }
-
-    /** @param  Collection<int,mixed>  $values */
-    private function labeledCounts(Collection $values, array $labels): array
-    {
-        return $values
-            ->countBy(fn ($v) => $v ? '1' : '')
-            ->map(fn (int $count, string $key) => ['name' => $labels[$key] ?? $key, 'value' => $count])
-            ->values()
-            ->all();
-    }
-
-    /** @param  Collection<int,mixed>  $values */
-    private function numberBuckets(Collection $values): array
-    {
-        $numbers = $values->map(fn ($v) => (float) $v);
-
-        if ($numbers->isEmpty()) {
-            return [];
-        }
-
-        $min = $numbers->min();
-        $max = $numbers->max();
-        $bucketCount = 8;
-        $width = max(0.0001, ($max - $min) / $bucketCount);
-
-        $buckets = collect(range(0, $bucketCount - 1))->map(fn (int $i) => [
-            'name' => sprintf('%.1f–%.1f', $min + $i * $width, $min + ($i + 1) * $width),
-            'value' => 0,
-        ])->all();
-
-        foreach ($numbers as $n) {
-            $idx = min($bucketCount - 1, (int) floor(($n - $min) / $width));
-            $buckets[$idx]['value']++;
-        }
-
-        return array_values($buckets);
-    }
-
     /** @return Collection<int,Incident> */
     private function incidentsBetween(CarbonImmutable $start, CarbonImmutable $end): Collection
     {
@@ -187,21 +101,21 @@ class AnalyticsService
         $prevDetect = $this->avgMinutes($previous, fn (Incident $i) => Duration::minutesBetween($i->started_at, $i->detected_at));
 
         $diagnose = $this->avgMinutes($current, fn (Incident $i) => Duration::minutesBetween(
-            Duration::anchorTime($i->started_at, $i->stepOfKind(TimelineKind::Diagnosis)?->time),
-            Duration::anchorTime($i->started_at, $i->stepOfKind(TimelineKind::HandedOff)?->time),
+            $i->stepOfKind(TimelineKind::Diagnosis)?->occurred_at,
+            $i->handedOffAt(),
         ));
         $prevDiagnose = $this->avgMinutes($previous, fn (Incident $i) => Duration::minutesBetween(
-            Duration::anchorTime($i->started_at, $i->stepOfKind(TimelineKind::Diagnosis)?->time),
-            Duration::anchorTime($i->started_at, $i->stepOfKind(TimelineKind::HandedOff)?->time),
+            $i->stepOfKind(TimelineKind::Diagnosis)?->occurred_at,
+            $i->handedOffAt(),
         ));
 
         $escalate = $this->avgMinutes($current, fn (Incident $i) => Duration::minutesBetween(
             $i->detected_at,
-            Duration::anchorTime($i->started_at, $i->stepOfKind(TimelineKind::HandedOff)?->time),
+            $i->handedOffAt(),
         ));
         $prevEscalate = $this->avgMinutes($previous, fn (Incident $i) => Duration::minutesBetween(
             $i->detected_at,
-            Duration::anchorTime($i->started_at, $i->stepOfKind(TimelineKind::HandedOff)?->time),
+            $i->handedOffAt(),
         ));
 
         return [
@@ -313,7 +227,6 @@ class AnalyticsService
     /** @param  Collection<int,Incident>  $current */
     private function topServicesPie(Collection $current): array
     {
-        $counts = $current->flatMap(fn (Incident $i) => $i->services->pluck('name'))->countBy()->sortDesc()->values();
         $named = $current->flatMap(fn (Incident $i) => $i->services->pluck('name'))->countBy()->sortDesc();
 
         $top3 = $named->take(3)->map(fn (int $value, string $name) => ['name' => $name, 'value' => $value])->values();

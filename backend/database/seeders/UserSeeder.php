@@ -8,28 +8,36 @@ use Illuminate\Database\Seeder;
 
 class UserSeeder extends Seeder
 {
+    /** Username => [name, position] — дежурные, на которых ссылается IncidentSeeder. */
+    public const ON_DUTY = [
+        'ivanov' => ['Иванов Иван', 'Тех. поддержка'],
+        'petrova' => ['Петрова Анна', 'Тех. поддержка'],
+        'sidorov' => ['Сидоров Пётр', 'Тех. поддержка'],
+        'kuznecova' => ['Кузнецова Мария', 'Тех. поддержка'],
+    ];
+
     public function run(): void
     {
         User::updateOrCreate(
-            ['email' => 'engineer@ims.local'],
+            ['username' => 'admin'],
             [
-                'name' => 'Иван Петров',
+                'name' => 'Администратор',
                 'password' => 'password',
-                'position' => 'Тех. поддержка',
-                'role' => UserRole::Engineer,
-                'email_verified_at' => now(),
+                'position' => 'Руководитель поддержки',
+                'role' => UserRole::Admin,
             ],
         );
 
-        User::updateOrCreate(
-            ['email' => 'viewer@ims.local'],
-            [
-                'name' => 'Ольга Смирнова',
-                'password' => 'password',
-                'position' => 'Менеджер',
-                'role' => UserRole::Viewer,
-                'email_verified_at' => now(),
-            ],
-        );
+        foreach (self::ON_DUTY as $username => [$name, $position]) {
+            User::updateOrCreate(
+                ['username' => $username],
+                [
+                    'name' => $name,
+                    'password' => 'password',
+                    'position' => $position,
+                    'role' => UserRole::OnDuty,
+                ],
+            );
+        }
     }
 }

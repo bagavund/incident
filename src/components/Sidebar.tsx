@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Check, LayoutDashboard, ListChecks, LogOut, Moon, PlusCircle, Settings, ShieldCheck, Sun } from 'lucide-react';
+import { useAuth } from '../auth';
 import type { Screen } from '../types';
 import { useTheme, type Theme } from '../theme';
 import { navigate } from '../router';
@@ -20,6 +21,8 @@ export function Sidebar({
   onNavigate: (s: Screen) => void;
   onLogout: () => void;
 }) {
+  const { user, isAdmin } = useAuth();
+
   return (
     <aside className="flex w-60 flex-none flex-col border-r border-neon/10 bg-black/80 backdrop-blur">
       <div className="flex items-center gap-2.5 px-5 py-6">
@@ -54,8 +57,15 @@ export function Sidebar({
 
         <div className="my-3 h-px bg-white/5" />
 
-        <SettingsMenu adminActive={screen === 'admin'} onLogout={onLogout} />
+        <SettingsMenu adminActive={screen === 'admin'} isAdmin={isAdmin} onLogout={onLogout} />
       </nav>
+
+      {user && (
+        <div className="border-t border-white/5 px-5 py-3 leading-tight">
+          <p className="truncate text-[13px] text-gray-300">{user.name}</p>
+          <p className="text-[11px] text-gray-600">{user.role_label}</p>
+        </div>
+      )}
     </aside>
   );
 }
@@ -65,7 +75,15 @@ const THEME_OPTIONS: { value: Theme; label: string; icon: typeof Moon }[] = [
   { value: 'light', label: 'Светлая', icon: Sun },
 ];
 
-function SettingsMenu({ adminActive, onLogout }: { adminActive: boolean; onLogout: () => void }) {
+function SettingsMenu({
+  adminActive,
+  isAdmin,
+  onLogout,
+}: {
+  adminActive: boolean;
+  isAdmin: boolean;
+  onLogout: () => void;
+}) {
   const { theme, setTheme } = useTheme();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -111,6 +129,8 @@ function SettingsMenu({ adminActive, onLogout }: { adminActive: boolean; onLogou
               </button>
             );
           })}
+          {isAdmin && (
+            <>
           <div className="my-1 h-px bg-white/5" />
           <button
             onClick={() => {
@@ -126,6 +146,8 @@ function SettingsMenu({ adminActive, onLogout }: { adminActive: boolean; onLogou
             <span className="flex-1">Администрирование</span>
             {adminActive && <Check size={14} className="text-neon" />}
           </button>
+            </>
+          )}
           <div className="my-1 h-px bg-white/5" />
           <button
             onClick={() => {
