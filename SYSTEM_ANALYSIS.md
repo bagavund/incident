@@ -124,13 +124,20 @@ IMS — веб-реестр IT-инцидентов: единая форма р�
 одной машине: сборка фронтенда кладётся в публичную директорию Laravel, Apache
 отдаёт и статику, и API с одного origin.
 
-```
-[ React SPA ]  →  [ REST + JWT ]  →  [ Laravel 13 / PHP 8.4 ]  →  [ SQLite ]
-  React 18 + TS       JSON/HTTP         Кастомный JWT              16 миграций
-  Vite, код-сплит     Bearer-токен      (firebase/php-jwt)         Файл в томе
-  Tailwind, Recharts  общий origin      Eloquent ORM              Драйвер меняется
-  свой роутер         в проде,          FormRequest-валидация     в .env без правок
-  на History API      /api-прокси в dev ролевой middleware        схемы
+```mermaid
+flowchart LR
+    SPA["React 18 + TS · SPA<br/>Vite · Tailwind · Recharts<br/>свой роутер на History API"]
+    APACHE["Apache<br/>один origin"]
+    LARAVEL["Laravel 13 / PHP 8.4<br/>FormRequest · Resources<br/>Services · Policies · Enums"]
+    JWT["Кастомный JWT<br/>firebase/php-jwt · денилист в кэше"]
+    DB[("SQLite<br/>16 миграций · файл в томе<br/>драйвер меняется в .env")]
+
+    SPA -- "GET /* — статика" --> APACHE
+    SPA -- "/api/* + Bearer-токен" --> APACHE
+    APACHE -- "всё, кроме /api/*" --> SPA
+    APACHE -- "/api/*" --> LARAVEL
+    LARAVEL --> JWT
+    LARAVEL -- "Eloquent ORM" --> DB
 ```
 
 **Почему один сервер.** Продуктовое требование — работать одной командой на
@@ -172,11 +179,83 @@ origin.
 Экраны разбиты через `React.lazy` — открыть карточку инцидента не значит
 загрузить код графиков дашборда.
 
+**Путь запроса `/api/*` через слои бэкенда:**
+
+```mermaid
+flowchart TB
+    REQ["HTTP-запрос /api/*"] --> MW["middleware<br/>ForceJsonResponse · auth.jwt · role:*"]
+    MW --> CTRL["Контроллер — оркестрация"]
+    CTRL --> FR["FormRequest<br/>валидация + authorize()"]
+    FR --> POL["Policy<br/>кто правит инцидент"]
+    CTRL --> SUP["Support<br/>TimelineSync · EscalationSync · IncidentAuditor"]
+    CTRL --> SVC["Services<br/>IncidentMetrics · SlaEvaluator · AnalyticsService"]
+    SUP --> MODEL["Eloquent-модели"]
+    SVC --> MODEL
+    MODEL --> DB[("SQLite")]
+    CTRL --> RES["Resource — форма JSON-ответа"]
+    RES --> OUT["JSON"]
+```
+
 ### 3. Модель данных
 
 Ядро — `incidents`. Поля `type` и `criticality` — свободные строки, сверяемые со
 справочниками через правило `exists`, но без внешнего ключа: справочник можно
 переименовывать (с каскадом), не ломая сохранённые инциденты.
+
+```mermaid
+erDiagram
+    users ||--o{ incidents : "on_duty_user_id · created_by"
+    incidents ||--o{ timeline_steps : "1→N"
+    incidents ||--o{ escalation_attempts : "1→N"
+    incidents ||--o{ incident_audits : "nullOnDelete"
+    users ||--o{ incident_audits : "nullOnDelete"
+    incidents }o--o{ services : "incident_service"
+
+    incidents {
+        string code
+        string title
+        string type "ссылка на справочник по имени"
+        string criticality "ссылка на справочник по имени"
+        enum status "draft / published"
+        enum sla "met / breached — только SlaEvaluator"
+        timestamp started_at
+        timestamp detected_at
+        timestamp resolved_at
+        bool stub_installed
+        json zones "массив имён"
+    }
+    timeline_steps {
+        int position
+        enum kind "detected / diagnosis / handed_off / informed / war_room / resolved"
+        text action
+        bool custom
+        timestamp occurred_at "ЧЧ:ММ, привязано к дате начала"
+    }
+    escalation_attempts {
+        int position
+        string time "ЧЧ:ММ"
+        string callee_name
+        enum kind "responsible / approval"
+        enum channel "phone / telegram / yandex_messenger / mail"
+        enum result "reached / not_reached / redirected"
+        int attempts
+    }
+    incident_audits {
+        string incident_code "снимок, переживает удаление"
+        string incident_title "снимок"
+        enum action "created / updated / deleted"
+        json changes "поле: [старое, новое]"
+    }
+    services {
+        string name "unique"
+    }
+    sla_settings {
+        int escalation_minutes "singleton, по умолчанию 30"
+    }
+```
+
+`zones`, `incident_types`, `criticalities` устроены как `services` (`id`, `name`
+unique), но инциденты ссылаются на них по названию, а не через pivot.
 
 **`incidents`**
 - `id`, `code` (человекочитаемый `INC-2026-00001`, генерирует `Incident::nextCode()`)
@@ -232,6 +311,22 @@ JWT (`jti` → до истечения `exp`).
   сутки, пока результат раньше `$notBefore` (монотонная последовательность через полночь).
 - `human($minutes)` → `"42м"`, `"2ч 47м"`, `"2ч"`.
 - `payload($minutes)` → `{minutes, human}` — форма каждой метрики времени.
+
+**Хронология инцидента и что какая метрика измеряет** (сплошная стрелка —
+последовательность событий, пунктир — интервал-метрика):
+
+```mermaid
+flowchart LR
+    S["started_at<br/>начало"] --> D["detected_at<br/>обнаружение"]
+    D --> DG["шаг «Диагностика»<br/>occurred_at"]
+    DG --> H["шаг «Передана ответственным»<br/>handedOffAt"]
+    H --> R["resolved_at<br/>устранение"]
+
+    S -. "to_detect · MTTD" .-> D
+    D -. "to_escalate · сверяется с порогом SLA" .-> H
+    DG -. "to_diagnose" .-> H
+    S -. "to_resolve · MTTR" .-> R
+```
 
 #### 4.1. Метрики одного инцидента (`IncidentMetrics::for($incident)`)
 
@@ -351,6 +446,21 @@ JWT (`jti` → до истечения `exp`).
 «схлопывается». Шаг без времени → `occurred_at = null`, курсор не двигается.
 Эскалации анкорятся так же, но на лету (в `IncidentMetrics`), без отдельной
 колонки. Клиентская валидация хронологии удалена.
+
+**Конвейер сохранения инцидента** (`store` / `update`, вся цепочка в одной транзакции):
+
+```mermaid
+flowchart TB
+    F["Форма: сырые поля<br/>шаги с ЧЧ:ММ · эскалации"] --> V["IncidentRequest<br/>валидация · поле sla игнорируется"]
+    V --> TX{{"Транзакция"}}
+    TX --> W["Запись incidents"]
+    W --> TS["TimelineSync<br/>ЧЧ:ММ → occurred_at, перенос через полночь"]
+    TS --> ES["EscalationSync"]
+    ES --> SLA["SlaEvaluator<br/>detected_at → handed_off ≤ порог?"]
+    SLA --> AU["IncidentAuditor<br/>дифф изменённых полей, пустой → без записи"]
+    AU --> RES["IncidentDetailResource<br/>+ metrics от IncidentMetrics"]
+    RES --> OUT["JSON карточки"]
+```
 
 **Вердикт SLA на сервере** — `SlaEvaluator` (см. §4.2). Запрос присылает `sla`?
 Он игнорируется правилом валидации; тест `test_sla_is_computed_server_side`
