@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { Check, LayoutDashboard, ListChecks, LogOut, Moon, PlusCircle, Settings, ShieldCheck, Sun } from 'lucide-react';
+import { Check, KeyRound, LayoutDashboard, ListChecks, LogOut, Moon, PlusCircle, Settings, ShieldCheck, Sun } from 'lucide-react';
 import { useAuth } from '../auth';
 import type { Screen } from '../types';
 import { useTheme, type Theme } from '../theme';
 import { navigate } from '../router';
 import { cn } from './ui';
+import { PasswordModal } from './PasswordModal';
 
 const NAV: { id: Screen; label: string; icon: typeof LayoutDashboard }[] = [
   { id: 'dashboard', label: 'Дашборд', icon: LayoutDashboard },
@@ -85,7 +86,9 @@ function SettingsMenu({
   onLogout: () => void;
 }) {
   const { theme, setTheme } = useTheme();
+  const { changePassword } = useAuth();
   const [open, setOpen] = useState(false);
+  const [pwOpen, setPwOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -152,6 +155,17 @@ function SettingsMenu({
           <button
             onClick={() => {
               setOpen(false);
+              setPwOpen(true);
+            }}
+            className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[13px] text-gray-400 transition-colors hover:bg-white/[0.03] hover:text-gray-200"
+          >
+            <KeyRound size={14} />
+            <span className="flex-1">Сменить пароль</span>
+          </button>
+          <div className="my-1 h-px bg-white/5" />
+          <button
+            onClick={() => {
+              setOpen(false);
               onLogout();
             }}
             className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[13px] text-gray-400 transition-colors hover:bg-white/[0.03] hover:text-crit"
@@ -160,6 +174,15 @@ function SettingsMenu({
             <span className="flex-1">Выйти</span>
           </button>
         </div>
+      )}
+
+      {pwOpen && (
+        <PasswordModal
+          title="Смена пароля"
+          mode="self"
+          onSubmit={({ current, next, confirm }) => changePassword(current, next, confirm)}
+          onClose={() => setPwOpen(false)}
+        />
       )}
     </div>
   );

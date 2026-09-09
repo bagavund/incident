@@ -28,6 +28,8 @@ interface Auth {
   /** Инцидент редактирует админ или дежурный, вписанный именно в него. */
   canEditIncident: (incident: { onDuty: { id: number } | null }) => boolean;
   login: (username: string, password: string) => Promise<void>;
+  /** Смена своего пароля: сервер отдаёт новый токен (старый отзывает), обновляем сессию. */
+  changePassword: (current: string, next: string, confirm: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -84,6 +86,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setRestoring(false);
   }, []);
 
+  const changePassword = useCallback(async (current: string, next: string, confirm: string) => {
+    const res = await apiPost<LoginResponse>('/auth/password', {
+      current_password: current,
+      password: next,
+      password_confirmation: confirm,
+    });
+    setToken(res.token);
+    setTokenState(res.token);
+    setUser(res.user);
+  }, []);
+
   const isAdmin = user?.role === 'admin';
 
   const canEditIncident = useCallback(
@@ -92,7 +105,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   return (
-    <AuthContext.Provider value={{ token, user, restoring, isAdmin, canEditIncident, login, logout }}>
+    <AuthContext.Provider value={{ token, user, restoring, isAdmin, canEditIncident, login, changePassword, logout }}>
       {children}
     </AuthContext.Provider>
   );

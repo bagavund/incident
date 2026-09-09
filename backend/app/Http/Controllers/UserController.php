@@ -30,4 +30,20 @@ class UserController extends Controller
 
         return new UserResource($user);
     }
+
+    /**
+     * Сброс пароля пользователя администратором (роут под role:admin).
+     * Все активные токены этого юзера продолжают жить до истечения — при
+     * компрометации админ дополнительно заводит новую учётку/делит роль.
+     */
+    public function resetPassword(Request $request, User $user): JsonResponse
+    {
+        $validated = $request->validate([
+            'password' => ['required', 'confirmed', Password::defaults()],
+        ]);
+
+        $user->update(['password' => $validated['password']]);
+
+        return response()->json(['message' => 'Пароль обновлён.']);
+    }
 }
