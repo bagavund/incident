@@ -8,6 +8,12 @@ dist
 .vscode
 .idea
 
+# AI / local tooling — не уезжает в прод-репозиторий
+.claude
+.mcp.json
+backend/boost.json
+backend/.claude
+
 # vite build output copied into Laravel's public dir
 backend/public/assets
 backend/public/index.html

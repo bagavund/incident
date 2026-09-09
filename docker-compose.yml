@@ -20,7 +20,9 @@ services:
       # Same-origin now (Apache serves the SPA + API), so CORS is a non-issue,
       # but keep it permissive for anyone pointing the dev Vite server here.
       CORS_ALLOWED_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
-      # Local-dev only. On real deployments set this via secrets.
+      # Local-dev only — заведомо слабый пароль. Этот compose не предназначен
+      # для стендов/прода: там APP_ENV=production, ADMIN_PASSWORD приходит из
+      # секретов, а сидер падает, если он не задан.
       ADMIN_PASSWORD: password
     depends_on:
       db:
