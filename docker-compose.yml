@@ -11,13 +11,38 @@ services:
       # Generate your own for anything non-local: `php artisan key:generate --show`.
       APP_KEY: base64:HyZmA9eUVEOidQlETvyr+iSPCEIUZiA5t9cg9IE5d2E=
       JWT_SECRET: f0dd75ac7345d96ab263d8567b0214875ac48a66f53a95ff6cee9d2b2d4489ed
-      DB_CONNECTION: sqlite
-      DB_DATABASE: /data/database.sqlite
+      DB_CONNECTION: mysql
+      DB_HOST: db
+      DB_PORT: "3306"
+      DB_DATABASE: ims
+      DB_USERNAME: ims
+      DB_PASSWORD: ims
       # Same-origin now (Apache serves the SPA + API), so CORS is a non-issue,
       # but keep it permissive for anyone pointing the dev Vite server here.
       CORS_ALLOWED_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+      # Local-dev only. On real deployments set this via secrets.
+      ADMIN_PASSWORD: password
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    image: mysql:8.4
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_DATABASE: ims
+      MYSQL_USER: ims
+      MYSQL_PASSWORD: ims
+      MYSQL_ROOT_PASSWORD: root
     volumes:
-      - ims-db:/data
+      - ims-db:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
     restart: unless-stopped
 
 volumes:

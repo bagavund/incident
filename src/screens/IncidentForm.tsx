@@ -14,9 +14,12 @@ import {
   COMMUNICATION_CHANNELS,
   ESCALATION_KINDS,
   ESCALATION_RESULTS,
+  IMPACT_TARGET_LABELS,
+  IMPACT_TARGETS,
   TIMELINE_KINDS,
   type EscalationAttempt,
   type FullIncident,
+  type ImpactTarget,
   type IncidentDraft,
   type TimelineKind,
   type TimelineStep,
@@ -53,7 +56,10 @@ export function IncidentForm({
   onSaved: (id: string) => void;
   onCancel?: () => void;
 }) {
-  const { addIncident, updateIncident, services: serviceOptions, zones: zoneOptions, incidentTypes, criticalities, users } = useStore();
+  const { addIncident, updateIncident, services: serviceOptions, lookups, criticalities, users } = useStore();
+
+  const typeRows = lookups.incidentTypes.rows;
+  const zoneRows = lookups.zones.rows;
 
   const [title, setTitle] = useState(initial?.title ?? '');
   const [type, setType] = useState(initial?.type ?? '');
@@ -74,6 +80,9 @@ export function IncidentForm({
   const [escalations, setEscalations] = useState<EscalationAttempt[]>(initial?.escalations ?? []);
   const [cause, setCause] = useState(initial?.cause ?? '');
   const [impact, setImpact] = useState(initial?.impact ?? '');
+  /** [] на бэке — «влияния не было»; null — не заполнено. */
+  const [impactNone, setImpactNone] = useState(initial?.impactTargets?.length === 0);
+  const [impactTargets, setImpactTargets] = useState<ImpactTarget[]>(initial?.impactTargets ?? []);
   const [taskLink, setTaskLink] = useState(initial?.taskLink ?? '');
   const [error, setError] = useState<string | null>(null);
 
@@ -86,7 +95,7 @@ export function IncidentForm({
    */
   const baselineRef = useRef({
     title, type, criticality, activeServices, onDutyUserId, startedAtInput, resolvedAtInput,
-    stub, stubOn, stubOff, zoneChecks, steps, escalations, cause, impact, taskLink,
+    stub, stubOn, stubOff, zoneChecks, steps, escalations, cause, impact, impactNone, impactTargets, taskLink,
   });
   useEffect(() => {
     const b = baselineRef.current;
@@ -96,10 +105,11 @@ export function IncidentForm({
       startedAtInput !== b.startedAtInput || resolvedAtInput !== b.resolvedAtInput ||
       stub !== b.stub || stubOn !== b.stubOn || stubOff !== b.stubOff ||
       zoneChecks !== b.zoneChecks || steps !== b.steps || escalations !== b.escalations ||
-      cause !== b.cause || impact !== b.impact || taskLink !== b.taskLink;
+      cause !== b.cause || impact !== b.impact || impactNone !== b.impactNone ||
+      impactTargets !== b.impactTargets || taskLink !== b.taskLink;
   }, [
     title, type, criticality, activeServices, onDutyUserId, startedAtInput, resolvedAtInput,
-    stub, stubOn, stubOff, zoneChecks, steps, escalations, cause, impact, taskLink,
+    stub, stubOn, stubOff, zoneChecks, steps, escalations, cause, impact, impactNone, impactTargets, taskLink,
   ]);
 
   /** Блокирует переход по сайдбару/настройкам, пока в форме есть несохранённые изменения. */
@@ -177,6 +187,30 @@ export function IncidentForm({
   const notified = steps.some((s) => s.kind === 'Информирование');
   const warRoomCreated = steps.some((s) => s.kind === 'Собран war room');
 
+  /** Категория проблемы = категория выбранного типа; она делит зоны ответственности. */
+  const category = typeRows.find((r) => r.name === type)?.category ?? null;
+  const zoneOptions = category
+    ? zoneRows.filter((z) => z.category === category).map((z) => z.name)
+    : [];
+
+  /** Смена типа меняет категорию — снимаем отметки с зон, которые к ней уже не относятся. */
+  const changeType = (next: string) => {
+    setType(next);
+    const nextCategory = typeRows.find((r) => r.name === next)?.category ?? null;
+    const allowed = new Set(zoneRows.filter((z) => z.category === nextCategory).map((z) => z.name));
+    setZoneChecks((cur) => Object.fromEntries(Object.entries(cur).filter(([z]) => allowed.has(z))));
+  };
+
+  /** «Сайт» / «МП» и «Не было влияния» — взаимоисключающие. */
+  const toggleImpactTarget = (target: ImpactTarget, on: boolean) => {
+    setImpactNone(false);
+    setImpactTargets((cur) => (on ? [...cur, target] : cur.filter((x) => x !== target)));
+  };
+  const toggleImpactNone = (on: boolean) => {
+    setImpactNone(on);
+    if (on) setImpactTargets([]);
+  };
+
   /** Дата завершения задаёт время и для шага «Решена» в хронологии. */
   const updateResolvedAt = (value: string) => {
     setResolvedAtInput(value);
@@ -207,6 +241,9 @@ export function IncidentForm({
     setEscalations((list) => list.map((x) => (x.id === id ? { ...x, ...patch } : x)));
 
   const save = async (asDraft = false) => {
+    // Сохраняем только видимые (подходящие категории) отмеченные зоны.
+    const activeZones = zoneOptions.filter((z) => zoneChecks[z]);
+
     if (
       !title.trim() ||
       activeServices.length === 0 ||
@@ -218,9 +255,22 @@ export function IncidentForm({
       setError('Заполните обязательные поля: название, сервис, тип, критичность, дата начала, дежурный.');
       return;
     }
-    if (!asDraft && !cause.trim()) {
-      setError('Для публикации укажите причину инцидента.');
-      return;
+    if (!asDraft) {
+      if (!cause.trim()) {
+        setError('Для публикации укажите причину инцидента.');
+        return;
+      }
+      if (
+        !resolvedAtInput ||
+        activeZones.length === 0 ||
+        !impact.trim() ||
+        (!impactNone && impactTargets.length === 0)
+      ) {
+        setError(
+          'Для публикации заполните: дату завершения, зону ответственности, описание влияния и влияние на сайт/МП.',
+        );
+        return;
+      }
     }
 
     const startedAt = fromInputDT(startedAtInput);
@@ -232,8 +282,6 @@ export function IncidentForm({
       : resolvedStep?.time
         ? withTime(startedAt, resolvedStep.time)
         : null;
-
-    const activeZones = Object.keys(zoneChecks).filter((z) => zoneChecks[z]);
 
     const draft: IncidentDraft = {
       title: title.trim(),
@@ -248,6 +296,7 @@ export function IncidentForm({
       stub: stub ? { on: stubOn, off: stubOff || null } : null,
       cause: cause.trim(),
       impact: impact.trim(),
+      impactTargets: impactNone ? [] : impactTargets.length ? impactTargets : null,
       taskLink: taskLink.trim(),
       zones: activeZones,
       timeline: steps,
@@ -354,6 +403,19 @@ export function IncidentForm({
               subtitle="Обнаружено · диагностика · передана ответственным · решена — порядок шагов можно менять стрелками"
             />
             <div className="p-5 pt-2">
+              <div className="mb-4 space-y-1 border-b border-white/[0.06] pb-3">
+                <Checkbox
+                  label="Была отправлена рассылка/информирование"
+                  checked={notified}
+                  onChange={(v) => toggleFixedStep('Информирование', v)}
+                />
+                <Checkbox
+                  label="Был собран war room (телемост)"
+                  checked={warRoomCreated}
+                  onChange={(v) => toggleFixedStep('Собран war room', v)}
+                />
+              </div>
+
               <ol className="relative space-y-3 border-l border-neon/30 pl-6">
                 {steps.map((s, idx) => (
                   <li key={s.id} className="relative">
@@ -430,19 +492,6 @@ export function IncidentForm({
                 <Plus size={14} />
                 Добавить шаг
               </button>
-
-              <div className="mt-4 space-y-1 border-t border-white/[0.06] pt-3">
-                <Checkbox
-                  label="Была отправлена рассылка/информирование"
-                  checked={notified}
-                  onChange={(v) => toggleFixedStep('Информирование', v)}
-                />
-                <Checkbox
-                  label="Был собран war room (телемост)"
-                  checked={warRoomCreated}
-                  onChange={(v) => toggleFixedStep('Собран war room', v)}
-                />
-              </div>
             </div>
           </Card>
 
@@ -552,6 +601,21 @@ export function IncidentForm({
           <Card>
             <CardHeader title="Итоговая информация" subtitle="Причина, влияние на пользователей и ссылка на задачу" />
             <div className="grid grid-cols-1 gap-4 p-5 pt-2 sm:grid-cols-2">
+              <div className="sm:col-span-2">
+                <Field label="Влияние на сайт / МП" required>
+                  <div className="rounded-lg border border-white/[0.06] bg-white/[0.015] px-3 py-1">
+                    {IMPACT_TARGETS.map((t) => (
+                      <Checkbox
+                        key={t}
+                        label={IMPACT_TARGET_LABELS[t]}
+                        checked={impactTargets.includes(t)}
+                        onChange={(v) => toggleImpactTarget(t, v)}
+                      />
+                    ))}
+                    <Checkbox label="Не было влияния" checked={impactNone} onChange={toggleImpactNone} />
+                  </div>
+                </Field>
+              </div>
               <Field label="Причина инцидента" required>
                 <Textarea
                   value={cause}
@@ -559,7 +623,7 @@ export function IncidentForm({
                   placeholder="Опишите первопричину инцидента..."
                 />
               </Field>
-              <Field label="Описание влияния">
+              <Field label="Описание влияния" required>
                 <Textarea
                   value={impact}
                   onChange={(e) => setImpact(e.target.value)}
@@ -588,13 +652,13 @@ export function IncidentForm({
           <Card>
             <CardHeader title="Тип и критичность" />
             <div className="space-y-3 p-4 pt-1">
-              <Field label="Тип" required>
-                <Select value={type} onChange={(e) => setType(e.target.value)}>
+              <Field label="Тип (категория проблемы)" required>
+                <Select value={type} onChange={(e) => changeType(e.target.value)}>
                   <option value="" disabled>
                     Выберите тип
                   </option>
-                  {incidentTypes.map((t) => (
-                    <option key={t}>{t}</option>
+                  {typeRows.map((t) => (
+                    <option key={t.id}>{t.name}</option>
                   ))}
                 </Select>
               </Field>
@@ -643,8 +707,12 @@ export function IncidentForm({
           </Card>
 
           <Card>
-            <CardHeader title="Зона ответственности" />
+            <CardHeader title="Зона ответственности" subtitle="Зависит от типа проблемы" />
             <div className="p-4 pt-1">
+              {!type && <p className="text-xs text-gray-600">Сначала выберите тип проблемы</p>}
+              {type && zoneOptions.length === 0 && (
+                <p className="text-xs text-gray-600">Для этой категории нет зон — добавьте их в администрировании</p>
+              )}
               {zoneOptions.map((z) => (
                 <Checkbox
                   key={z}

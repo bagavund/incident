@@ -133,6 +133,36 @@ class LookupTest extends TestCase
         $this->assertSame('Внешний сбой', $incident->fresh()->type);
     }
 
+    /** @return array<string,array{0:string}> */
+    public static function categorizedDictionaries(): array
+    {
+        return ['incident-types' => ['incident-types'], 'zones' => ['zones']];
+    }
+
+    #[DataProvider('categorizedDictionaries')]
+    public function test_dictionary_row_carries_a_category(string $prefix): void
+    {
+        $this->actingAsAdmin()
+            ->postJson("/api/{$prefix}", ['name' => 'КРОК', 'category' => 'external'])
+            ->assertCreated()
+            ->assertJsonPath('data.category', 'external');
+
+        // Без категории — «на нашей стороне» по умолчанию.
+        $this->actingAsAdmin()
+            ->postJson("/api/{$prefix}", ['name' => 'WEB01'])
+            ->assertCreated()
+            ->assertJsonPath('data.category', 'internal');
+    }
+
+    #[DataProvider('categorizedDictionaries')]
+    public function test_dictionary_category_is_validated(string $prefix): void
+    {
+        $this->actingAsAdmin()
+            ->postJson("/api/{$prefix}", ['name' => 'Значение', 'category' => 'bogus'])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['category']);
+    }
+
     public function test_renaming_a_criticality_cascades_into_incidents(): void
     {
         $criticality = Criticality::factory()->create(['name' => 'Важный']);

@@ -2,15 +2,15 @@ import { useEffect, useState } from 'react';
 import { Check, Clock, Pencil, Plus, ShieldAlert, Trash2, UserPlus, X } from 'lucide-react';
 import { ApiError } from '../lib/api';
 import { useStore, type LookupApi, type LookupKey, type NewUser } from '../store';
-import type { UserRole } from '../types';
+import { PROBLEM_CATEGORY_LABELS, type ProblemCategory, type UserRole } from '../types';
 import { Button, Card, CardHeader, Field, Input, Select } from '../components/ui';
 
 const SECTIONS: { key: LookupKey; title: string; subtitle: string }[] = [
   { key: 'services', title: 'Сервисы', subtitle: 'Доступны при создании инцидента' },
-  { key: 'zones', title: 'Зоны ответственности', subtitle: 'Чекбоксы в карточке инцидента' },
-  { key: 'incidentTypes', title: 'Типы инцидентов', subtitle: 'Выбор при создании инцидента' },
   { key: 'criticalities', title: 'Критичность инцидента', subtitle: 'Проставляет дежурный при создании' },
 ];
+
+const CATEGORY_ENTRIES = Object.entries(PROBLEM_CATEGORY_LABELS) as [ProblemCategory, string][];
 
 export function Admin() {
   const { lookups } = useStore();
@@ -40,6 +40,16 @@ export function Admin() {
         {SECTIONS.map(({ key, title, subtitle }) => (
           <EditableList key={key} title={title} subtitle={subtitle} lookup={lookups[key]} />
         ))}
+        <CategorizedList
+          title="Типы инцидентов"
+          subtitle="Значение = категория проблемы"
+          lookup={lookups.incidentTypes}
+        />
+        <CategorizedList
+          title="Зоны ответственности"
+          subtitle="Показываются в форме под свою категорию"
+          lookup={lookups.zones}
+        />
       </div>
     </div>
   );
@@ -296,6 +306,123 @@ function EditableList({ title, subtitle, lookup }: { title: string; subtitle: st
           <Button variant="outline" icon={<Plus size={14} />} onClick={add}>
             Добавить
           </Button>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+/**
+ * Справочник с категорией (типы инцидентов, зоны): как EditableList, но список
+ * сгруппирован по категории проблемы, а при добавлении выбирается категория.
+ */
+function CategorizedList({ title, subtitle, lookup }: { title: string; subtitle: string; lookup: LookupApi }) {
+  const [draft, setDraft] = useState('');
+  const [draftCategory, setDraftCategory] = useState<ProblemCategory>('internal');
+  const [editingIdx, setEditingIdx] = useState<number | null>(null);
+  const [editValue, setEditValue] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  const run = (action: Promise<void>) => {
+    setError(null);
+    action.catch((e) =>
+      setError(e instanceof ApiError ? e.message : 'Не удалось сохранить изменение. Проверьте соединение.'),
+    );
+  };
+
+  const add = () => {
+    const name = draft.trim();
+    if (!name) return;
+    run(lookup.add(name, draftCategory));
+    setDraft('');
+  };
+
+  const startEdit = (idx: number, current: string) => {
+    setError(null);
+    setEditingIdx(idx);
+    setEditValue(current);
+  };
+
+  const commitEdit = () => {
+    if (editingIdx === null) return;
+    const name = editValue.trim();
+    if (name) run(lookup.rename(editingIdx, name));
+    setEditingIdx(null);
+  };
+
+  const indexed = lookup.rows.map((row, idx) => ({ row, idx }));
+
+  return (
+    <Card>
+      <CardHeader title={title} subtitle={subtitle} />
+      <div className="space-y-3 px-3 pb-3 pt-1">
+        {CATEGORY_ENTRIES.map(([cat, label]) => {
+          const rows = indexed.filter(({ row }) => (row.category ?? 'internal') === cat);
+          return (
+            <div key={cat}>
+              <p className="px-2 pb-0.5 text-[11px] font-medium uppercase tracking-wide text-gray-600">{label}</p>
+              {rows.length === 0 && <p className="px-2 py-1 text-xs text-gray-700">Нет типов</p>}
+              {rows.map(({ row, idx }) => (
+                <div
+                  key={row.id}
+                  className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] hover:bg-white/[0.02]"
+                >
+                  {editingIdx === idx ? (
+                    <>
+                      <Input
+                        autoFocus
+                        value={editValue}
+                        onChange={(e) => setEditValue(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && commitEdit()}
+                        className="py-1"
+                      />
+                      <button onClick={commitEdit} className="text-neon hover:text-neon/80">
+                        <Check size={15} />
+                      </button>
+                      <button onClick={() => setEditingIdx(null)} className="text-gray-500 hover:text-gray-300">
+                        <X size={15} />
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <span className="flex-1 text-gray-300">{row.name}</span>
+                      <span className="font-mono text-[11px] text-gray-600" title="Инцидентов со значением">
+                        {row.usage_count}
+                      </span>
+                      <button onClick={() => startEdit(idx, row.name)} className="text-gray-600 hover:text-gray-300">
+                        <Pencil size={13} />
+                      </button>
+                      <button onClick={() => run(lookup.remove(idx))} className="text-gray-600 hover:text-crit">
+                        <Trash2 size={13} />
+                      </button>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+          );
+        })}
+        {error && <p className="px-2 pt-1 text-xs text-crit">{error}</p>}
+
+        <div className="space-y-2 pt-2">
+          <Select value={draftCategory} onChange={(e) => setDraftCategory(e.target.value as ProblemCategory)}>
+            {CATEGORY_ENTRIES.map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </Select>
+          <div className="flex items-center gap-2">
+            <Input
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && add()}
+              placeholder="Новый тип"
+            />
+            <Button variant="outline" icon={<Plus size={14} />} onClick={add}>
+              Добавить
+            </Button>
+          </div>
         </div>
       </div>
     </Card>

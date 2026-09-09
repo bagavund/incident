@@ -50,6 +50,8 @@ class IncidentTest extends TestCase
             'detected_at' => '2026-06-01T10:12:00',
             'resolved_at' => '2026-06-01T12:40:00',
             'zones' => ['Backend', 'База данных'],
+            'impact' => 'Оплата не проходила у части пользователей',
+            'impact_targets' => ['site', 'app'],
             'timeline' => [
                 ['kind' => 'detected', 'action' => 'Алерт', 'time' => '10:12'],
                 ['kind' => 'diagnosis', 'action' => 'Логи', 'time' => '10:20'],
@@ -168,6 +170,73 @@ class IncidentTest extends TestCase
             ->postJson('/api/incidents', ['title' => '', 'type' => 'bogus'])
             ->assertStatus(422)
             ->assertJsonValidationErrors(['title', 'services', 'type', 'criticality', 'on_duty_user_id', 'started_at']);
+    }
+
+    public function test_publishing_requires_the_postmortem_fields(): void
+    {
+        [$service, $type, $criticality] = $this->baseline();
+        $onDuty = User::factory()->onDuty()->create();
+
+        $this->actingAsAdmin()->postJson('/api/incidents', [
+            'title' => 'Сбой без постмортема',
+            'services' => [$service->id],
+            'type' => $type->name,
+            'criticality' => $criticality->name,
+            'on_duty_user_id' => $onDuty->id,
+            'status' => 'published',
+            'started_at' => '2026-06-01T10:00:00',
+        ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['resolved_at', 'zones', 'impact', 'impact_targets']);
+    }
+
+    public function test_a_draft_is_saved_without_the_postmortem_fields(): void
+    {
+        [$service, $type, $criticality] = $this->baseline();
+        $onDuty = User::factory()->onDuty()->create();
+
+        $this->actingAsAdmin()->postJson('/api/incidents', [
+            'title' => 'Черновик',
+            'services' => [$service->id],
+            'type' => $type->name,
+            'criticality' => $criticality->name,
+            'on_duty_user_id' => $onDuty->id,
+            'status' => 'draft',
+            'started_at' => '2026-06-01T10:00:00',
+        ])->assertCreated();
+    }
+
+    public function test_impact_targets_round_trip_including_the_no_impact_marker(): void
+    {
+        [$service, $type, $criticality] = $this->baseline();
+        $onDuty = User::factory()->onDuty()->create();
+        Zone::factory()->create(['name' => 'Backend']);
+
+        $publish = fn (array $override) => $this->actingAsAdmin()->postJson('/api/incidents', [
+            'title' => 'Сбой',
+            'services' => [$service->id],
+            'type' => $type->name,
+            'criticality' => $criticality->name,
+            'on_duty_user_id' => $onDuty->id,
+            'status' => 'published',
+            'started_at' => '2026-06-01T10:00:00',
+            'resolved_at' => '2026-06-01T11:00:00',
+            'zones' => ['Backend'],
+            'impact' => 'Описание влияния',
+            ...$override,
+        ]);
+
+        $publish(['impact_targets' => ['site', 'app']])
+            ->assertCreated()
+            ->assertJsonPath('data.impact_targets', ['site', 'app']);
+
+        $publish(['impact_targets' => []])
+            ->assertCreated()
+            ->assertJsonPath('data.impact_targets', []);
+
+        $publish(['impact_targets' => ['carrier_pigeon']])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['impact_targets.0']);
     }
 
     public function test_sla_is_computed_server_side_from_the_escalation_threshold(): void

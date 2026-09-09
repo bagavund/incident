@@ -32,8 +32,8 @@ RUN composer install --no-dev --optimize-autoloader --no-interaction --prefer-di
 FROM php:8.4-apache AS runtime
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        libicu-dev libzip-dev libsqlite3-dev \
- && docker-php-ext-install -j"$(nproc)" pdo_sqlite bcmath intl zip opcache \
+        libicu-dev libzip-dev \
+ && docker-php-ext-install -j"$(nproc)" pdo_mysql bcmath intl zip opcache \
  && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 RUN a2enmod rewrite \

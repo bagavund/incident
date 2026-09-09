@@ -16,6 +16,14 @@ dist
 backend/vendor
 backend/node_modules
 
+# Tests & tooling — not needed in the runtime image
+backend/tests
+backend/phpunit.xml
+backend/.editorconfig
+backend/.gitattributes
+docs
+scripts
+
 # Local env & data (regenerated inside the container)
 **/.env
 **/.env.backup

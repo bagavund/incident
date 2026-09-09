@@ -4,6 +4,10 @@ dist
 .DS_Store
 *.tsbuildinfo
 
+# editors
+.vscode
+.idea
+
 # vite build output copied into Laravel's public dir
 backend/public/assets
 backend/public/index.html

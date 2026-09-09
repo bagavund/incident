@@ -1,10 +1,11 @@
 # IMS API — бэкенд системы управления инцидентами
 
-Laravel 13 · PHP 8.5 · SQLite · JWT (HS256).
+Laravel 13 · PHP 8.3+ · MySQL 8 · JWT (HS256).
 
 REST API для фронтенда IMS: инциденты, хронология-постмортем, справочники и
-агрегированная аналитика для дашборда. Аутентификация — stateless JWT, две роли:
-`engineer` (полный доступ) и `viewer` (только чтение).
+агрегированная аналитика для дашборда. Аутентификация — stateless JWT, вход по
+логину. Две роли: `admin` (полный доступ) и `on_duty` (дежурный — правит только
+свои инциденты).
 
 ## Запуск
 
@@ -13,6 +14,8 @@ cd backend
 composer install
 cp .env.example .env
 php artisan key:generate
+# создайте БД и пропишите доступы в .env:
+#   DB_DATABASE=ims  DB_USERNAME=...  DB_PASSWORD=...
 # впишите JWT_SECRET в .env (любая длинная случайная строка);
 # без него используется APP_KEY
 php artisan migrate --seed
@@ -22,15 +25,20 @@ php artisan serve         # http://127.0.0.1:8000
 Быстро сгенерировать секрет:
 `php -r "echo bin2hex(random_bytes(32));"` → в `JWT_SECRET`.
 
-SQLite-файл создаётся автоматически (`database/database.sqlite`). Повторный
-прогон демо-данных — `php artisan migrate:fresh --seed`.
+Нужен MySQL 8 (или совместимый MariaDB). Создать пустую БД:
+`CREATE DATABASE ims CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`
+Пересоздать схему — `php artisan migrate:fresh --seed`.
 
-### Тестовые учётки
+Через Docker БД поднимается автоматически: `docker compose up` (сервис `db`,
+MySQL 8.4, том `ims-db`).
 
-| Роль | Email | Пароль |
-|------|-------|--------|
-| engineer | `engineer@ims.local` | `password` |
-| viewer | `viewer@ims.local` | `password` |
+### Сиды
+
+`php artisan db:seed` заводит справочники (типы инцидентов, критичности) и одну
+учётку администратора `admin`. Пароль — из `ADMIN_PASSWORD` (обязателен при
+`APP_ENV=production`; вне прода без неё генерируется случайный и печатается в
+вывод). Каталог сервисов/зон, дежурных и сами инциденты заводятся уже в
+работающей системе.
 
 ## Тесты
 
@@ -38,8 +46,10 @@ SQLite-файл создаётся автоматически (`database/databas
 php artisan test
 ```
 
-14 feature-тестов (`tests/Feature`): аутентификация, ролевой доступ, CRUD
-инцидента с хронологией, метрики, аналитика. БД — SQLite in-memory.
+Feature-тесты (`tests/Feature`): аутентификация, ролевой доступ, CRUD
+инцидента с хронологией, метрики, аналитика. БД — MySQL, отдельная схема
+`ims_testing` (см. `phpunit.xml`); создайте её один раз:
+`CREATE DATABASE ims_testing CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`
 
 ## Аутентификация
 
@@ -129,6 +139,7 @@ JWT_SECRET=...              # обязателен
 JWT_TTL=720                 # минуты
 JWT_REFRESH_TTL=20160
 CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+ADMIN_PASSWORD=...          # пароль сидируемого администратора (обязателен на проде)
 ```
 
 ## Структура
@@ -141,11 +152,12 @@ app/
     Middleware/     JwtAuthenticate, EnsureRole, ForceJsonResponse
     Requests/       валидация (FormRequest)
     Resources/      сериализация ответов
-  Models/           User, Service, Incident, TimelineStep
-  Services/         JwtService, AnalyticsService, IncidentMetrics
-  Support/          Duration, TimelineSync
+  Models/           User, Service, Incident, TimelineStep, …
+  Services/         JwtService, AnalyticsService, IncidentMetrics, SlaEvaluator
+  Support/          Duration, TimelineSync, EscalationSync, IncidentAuditor
 database/
-  migrations/       services, incidents, timeline_steps, role в users
-  seeders/          Service/User/Incident — демо-данные (~26 инцидентов)
+  migrations/       users, services, incidents, timeline_steps, справочники, аудит
+  seeders/          справочники + учётка администратора
+  factories/        для тестов
 routes/api.php
 ```

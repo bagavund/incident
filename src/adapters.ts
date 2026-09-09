@@ -57,6 +57,7 @@ export interface ApiIncident {
   stub: { installed: boolean; on: string | null; off: string | null } | null;
   cause: string | null;
   impact: string | null;
+  impact_targets: string[] | null;
   task_link: string | null;
   zones: string[];
   timeline?: ApiTimelineStep[];
@@ -124,6 +125,7 @@ export function mapIncident(api: ApiIncident): FullIncident {
     stub: api.stub?.installed ? { on: api.stub.on ?? '', off: api.stub.off } : null,
     cause: api.cause ?? '',
     impact: api.impact ?? '',
+    impactTargets: (api.impact_targets ?? null) as FullIncident['impactTargets'],
     taskLink: api.task_link ?? '',
     zones: api.zones ?? [],
     timeline: (api.timeline ?? []).map(mapTimelineStep),
@@ -196,6 +198,7 @@ export function mapIncidentToPayload(inc: IncidentDraft, serviceIds: number[]) {
     stub_off: inc.stub?.off || null,
     cause: inc.cause,
     impact: inc.impact,
+    impact_targets: inc.impactTargets,
     task_link: inc.taskLink,
     zones: inc.zones,
     timeline: inc.timeline.map((s) => ({

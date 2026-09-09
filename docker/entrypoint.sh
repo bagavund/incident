@@ -19,21 +19,30 @@ if [ -z "$JWT_SECRET" ] && grep -q '^JWT_SECRET=$' .env; then
     sed -i "s|^JWT_SECRET=.*|JWT_SECRET=${secret}|" .env
 fi
 
-# ── SQLite database ──────────────────────────────────────────
-db_file="${DB_DATABASE:-/var/www/html/database/database.sqlite}"
-mkdir -p "$(dirname "$db_file")"
-fresh_db=0
-if [ ! -s "$db_file" ]; then
-    fresh_db=1
-    : > "$db_file"
-fi
-chown -R www-data:www-data "$(dirname "$db_file")" storage bootstrap/cache
+chown -R www-data:www-data storage bootstrap/cache
 
-# ── Migrations (seed only on a brand-new database) ────────────
-if [ "$fresh_db" -eq 1 ]; then
-    php artisan migrate --seed --force
-else
+# ── Wait for MySQL ───────────────────────────────────────────
+echo "Waiting for database ${DB_HOST:-db}:${DB_PORT:-3306} ..."
+until php -r '
+    try {
+        new PDO(
+            sprintf("mysql:host=%s;port=%s", getenv("DB_HOST") ?: "db", getenv("DB_PORT") ?: "3306"),
+            getenv("DB_USERNAME") ?: "root",
+            getenv("DB_PASSWORD") ?: ""
+        );
+        exit(0);
+    } catch (Throwable $e) {
+        exit(1);
+    }
+'; do
+    sleep 2
+done
+
+# ── Migrations (seed only when the schema is still empty) ─────
+if php artisan migrate:status >/dev/null 2>&1; then
     php artisan migrate --force
+else
+    php artisan migrate --seed --force
 fi
 
 # ── Optimize ─────────────────────────────────────────────────

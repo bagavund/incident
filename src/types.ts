@@ -27,6 +27,21 @@ export const ESCALATION_CHANNEL_LABELS = {
   mail: 'Почта',
 } as const;
 
+/**
+ * Категория проблемы — совпадает со значением поля «Тип» инцидента и делит
+ * зоны ответственности на две группы в форме.
+ */
+export const PROBLEM_CATEGORY_LABELS = {
+  external: 'Внешняя проблема',
+  internal: 'Проблема на нашей стороне',
+} as const;
+
+/** На что повлиял инцидент — структурированный выбор в форме и карточке. */
+export const IMPACT_TARGET_LABELS = {
+  site: 'Сайт',
+  app: 'Мобильное приложение',
+} as const;
+
 export const ESCALATION_RESULT_LABELS = {
   reached: 'Дозвонился',
   not_reached: 'Не дозвонился',
@@ -45,6 +60,14 @@ export type SlaState = (typeof SLA_LABELS)[keyof typeof SLA_LABELS];
 
 /** Тип инцидента — редактируемый справочник (Администрирование). */
 export type IncidentType = string;
+
+/** Значение категории проблемы (value бэкенда). */
+export type ProblemCategory = keyof typeof PROBLEM_CATEGORY_LABELS;
+
+/** Площадка, затронутая инцидентом (value бэкенда). */
+export type ImpactTarget = keyof typeof IMPACT_TARGET_LABELS;
+
+export const IMPACT_TARGETS: ImpactTarget[] = Object.keys(IMPACT_TARGET_LABELS) as ImpactTarget[];
 
 export type TimelineKind = (typeof TIMELINE_KIND_LABELS)[keyof typeof TIMELINE_KIND_LABELS];
 
@@ -137,6 +160,8 @@ export interface FullIncident {
   stub: { on: string; off: string | null } | null;
   cause: string;
   impact: string;
+  /** null — не заполнено; [] — влияния не было; ['site'|'app'] — затронутые площадки. */
+  impactTargets: ImpactTarget[] | null;
   taskLink: string;
   zones: string[];
   timeline: TimelineStep[];

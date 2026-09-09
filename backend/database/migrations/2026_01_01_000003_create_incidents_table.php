@@ -17,10 +17,10 @@ return new class extends Migration
 
             $table->string('type');        // свободный текст, значения из справочника incident_types
             $table->string('criticality'); // свободный текст, значения из справочника criticalities
+            // Дежурный на инциденте — реальный аккаунт (проверка прав в IncidentPolicy).
+            $table->foreignId('on_duty_user_id')->nullable()->constrained('users')->nullOnDelete();
             $table->string('status')->default('draft'); // App\Enums\IncidentStatus
             $table->string('sla')->default('met');       // App\Enums\IncidentSla
-
-            $table->string('on_duty_name')->nullable();
 
             $table->timestamp('started_at')->nullable();
             $table->timestamp('detected_at')->nullable();
@@ -32,6 +32,8 @@ return new class extends Migration
 
             $table->text('cause')->nullable();
             $table->text('impact')->nullable();
+            // null — не заполнено, [] — влияния не было, ["site"|"app"|…] — затронутые площадки.
+            $table->json('impact_targets')->nullable();
             $table->string('task_link')->nullable();
             $table->json('zones')->nullable();
 

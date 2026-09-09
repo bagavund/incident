@@ -18,7 +18,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'code', 'title', 'created_by', 'type', 'criticality', 'status', 'sla',
     'on_duty_user_id', 'started_at', 'detected_at', 'resolved_at',
     'stub_installed', 'stub_on', 'stub_off',
-    'cause', 'impact', 'task_link', 'zones',
+    'cause', 'impact', 'impact_targets', 'task_link', 'zones',
 ])]
 class Incident extends Model
 {
@@ -34,6 +34,7 @@ class Incident extends Model
             'resolved_at' => 'datetime',
             'stub_installed' => 'boolean',
             'zones' => 'array',
+            'impact_targets' => 'array',
         ];
     }
 

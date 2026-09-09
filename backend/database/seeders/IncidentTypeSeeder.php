@@ -2,22 +2,22 @@
 
 namespace Database\Seeders;
 
+use App\Enums\ProblemCategory;
 use App\Models\IncidentType;
 use Illuminate\Database\Seeder;
 
 class IncidentTypeSeeder extends Seeder
 {
+    /** Тип инцидента = категория проблемы: значение и его категория совпадают. */
     public const TYPES = [
-        'Проблема на нашей стороне',
-        'Внешняя проблема',
-        'Сервис с проблемой',
-        'Установлена заглушка',
+        ProblemCategory::External,
+        ProblemCategory::Internal,
     ];
 
     public function run(): void
     {
-        foreach (self::TYPES as $name) {
-            IncidentType::firstOrCreate(['name' => $name]);
+        foreach (self::TYPES as $category) {
+            IncidentType::firstOrCreate(['name' => $category->label()], ['category' => $category->value]);
         }
     }
 }

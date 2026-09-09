@@ -50,6 +50,7 @@ class IncidentDetailResource extends JsonResource
 
             'cause' => $this->cause,
             'impact' => $this->impact,
+            'impact_targets' => $this->impact_targets,
             'task_link' => $this->task_link,
             'zones' => $this->zones ?? [],
 

@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { ApiError, apiDelete, apiGet, apiPost, apiPut } from './lib/api';
 import { mapIncident, mapIncidentToPayload, type ApiIncident } from './adapters';
-import type { FullIncident, IncidentDraft, UserAccount, UserRole } from './types';
+import type { FullIncident, IncidentDraft, ProblemCategory, UserAccount, UserRole } from './types';
 
 /** Данные для создания учётки — заводит только администратор. */
 export interface NewUser {
@@ -18,6 +18,8 @@ export interface LookupRow {
   name: string;
   /** Сколько инцидентов ссылаются на значение — считает сервер. */
   usage_count: number;
+  /** У типов инцидентов и зон: категория проблемы (Внешняя / На нашей стороне). */
+  category?: ProblemCategory;
 }
 
 /**
@@ -27,8 +29,8 @@ export interface LookupRow {
  */
 export interface LookupApi {
   rows: LookupRow[];
-  add: (name: string) => Promise<void>;
-  rename: (index: number, name: string) => Promise<void>;
+  add: (name: string, category?: ProblemCategory) => Promise<void>;
+  rename: (index: number, name: string, category?: ProblemCategory) => Promise<void>;
   remove: (index: number) => Promise<void>;
 }
 
@@ -80,18 +82,21 @@ function useLookupResource(endpoint: string) {
   }, [endpoint]);
 
   const add = useCallback(
-    async (name: string) => {
-      const res = await apiPost<{ data: LookupRow }>(`/${endpoint}`, { name });
+    async (name: string, category?: ProblemCategory) => {
+      const res = await apiPost<{ data: LookupRow }>(`/${endpoint}`, { name, ...(category && { category }) });
       setRows((r) => [...r, res.data].sort(byName));
     },
     [endpoint],
   );
 
   const rename = useCallback(
-    async (index: number, name: string) => {
+    async (index: number, name: string, category?: ProblemCategory) => {
       const row = rows[index];
       if (!row) return;
-      const res = await apiPut<{ data: LookupRow }>(`/${endpoint}/${row.id}`, { name });
+      const res = await apiPut<{ data: LookupRow }>(`/${endpoint}/${row.id}`, {
+        name,
+        ...(category && { category }),
+      });
       setRows((r) => r.map((x, i) => (i === index ? res.data : x)).sort(byName));
     },
     [endpoint, rows],

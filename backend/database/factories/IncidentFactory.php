@@ -38,6 +38,7 @@ class IncidentFactory extends Factory
             'resolved_at' => (clone $detected)->modify('+3 hours'),
             'cause' => fake()->sentence(),
             'impact' => fake()->sentence(),
+            'impact_targets' => fake()->randomElement([['site'], ['app'], ['site', 'app'], []]),
             'zones' => ['Backend'],
         ];
     }

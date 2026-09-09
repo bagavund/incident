@@ -3,7 +3,7 @@
 Система управления IT-инцидентами: дашборд, реестр инцидентов и постмортемы.
 
 - **Фронтенд** — React + TypeScript + Tailwind + Recharts + Lucide (эта папка).
-- **Бэкенд** — Laravel 13 + SQLite + JWT ([backend/](backend/), своя [README](backend/README.md)).
+- **Бэкенд** — Laravel 13 + MySQL 8 + JWT ([backend/](backend/), своя [README](backend/README.md)).
 
 Интерфейс минималистичный в духе iOS / Notion: тёмная тема, приглушённые
 границы, зелёный акцент точечно, моноширинный JetBrains Mono для чисел и времени.
@@ -17,14 +17,13 @@ docker compose up --build
 ```
 
 Собирается фронт (Vite), ставятся зависимости бэкенда, применяются миграции и
-сиды — всё в одном контейнере (PHP 8.4 + Apache). Приложение и API на одном
-адресе: **http://localhost:8000**. База (SQLite) живёт в томе `ims-db` и
+сиды. Два контейнера: `app` (PHP 8.4 + Apache) и `db` (MySQL 8.4). Приложение
+и API на одном адресе: **http://localhost:8000**. База живёт в томе `ims-db` и
 переживает пересборку; выключить — `docker compose down`, снести базу —
 `docker compose down -v`.
 
-Тестовые учётки (вход по логину, пароль у всех `password`):
-`admin` — администратор (полный доступ), `ivanov` / `petrova` / `sidorov` /
-`kuznecova` — дежурные (создают инциденты, правят только свои).
+Сид создаёт одну учётку администратора `admin` (пароль — из `ADMIN_PASSWORD`,
+в `docker-compose.yml` по умолчанию `password`). Дежурных заводит админ.
 
 ## Запуск без Docker
 
@@ -33,15 +32,14 @@ docker compose up --build
 ```bash
 cd backend
 composer install && cp .env.example .env
-php artisan key:generate          # JWT_SECRET впишите в .env вручную
+php artisan key:generate          # JWT_SECRET и ADMIN_PASSWORD впишите в .env вручную
 php artisan migrate --seed
 cd ..
 npm install
-cp .env.example .env              # VITE_API_URL, если бэкенд не на :8000
 ```
 
 Дальше — каждый раз одной командой из корня проекта (поднимает и бэкенд
-на :8000, и фронтенд на :5173 сразу):
+на :8000, и фронтенд на :5173 сразу; фронт проксирует `/api` на :8000):
 
 ```bash
 npm run dev
@@ -50,10 +48,8 @@ npm run dev
 Поднять их по отдельности (например, в разных терминалах) по-прежнему можно:
 `npm run dev:backend` и `npm run dev:frontend`.
 
-Тестовые учётки (вход по логину, пароль у всех `password`): `admin` —
-администратор (полный доступ: любой инцидент, справочники, SLA, пользователи),
-`ivanov` / `petrova` / `sidorov` / `kuznecova` — дежурные (создают инциденты,
-редактируют и удаляют только те, где вписаны сами).
+Вход по логину `admin`, пароль — значение `ADMIN_PASSWORD` из `backend/.env`
+(если не задан вне прода — сид напечатает сгенерированный пароль).
 
 > Все экраны работают на реальном API. Клиент — [src/lib/api.ts](src/lib/api.ts),
 > преобразование форматов — [src/adapters.ts](src/adapters.ts).
@@ -82,10 +78,12 @@ src/
   components/ui.tsx   — Card, Button, Badge, SlaBadge, Input, Select,
                         Checkbox, AutoTextarea, InfoHint, Delta
   components/Sidebar.tsx
-  screens/            — Dashboard, Incidents, IncidentDetail, CreateIncident
+  screens/            — Login, Dashboard, Incidents, IncidentDetail,
+                        CreateIncident, IncidentForm, Admin
+  router.tsx          — лёгкий роутер на History API
   lib/api.ts          — типизированный клиент к бэкенду
   adapters.ts         — API-формат ⇄ модель экранов
-  auth.tsx · store.tsx — сессия и загруженные данные
-  data.ts             — форматы дат, валидация хронологии, расчёты по эскалациям
+  auth.tsx · store.tsx · theme.tsx — сессия, загруженные данные, тема
+  data.ts             — форматы дат, валидация хронологии
   types.ts · App.tsx
 ```

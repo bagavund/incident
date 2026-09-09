@@ -2,15 +2,23 @@
 
 namespace App\Models;
 
+use App\Enums\ProblemCategory;
 use App\Models\Concerns\LookupValue;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-#[Fillable(['name'])]
+#[Fillable(['name', 'category'])]
 class Zone extends Model implements LookupValue
 {
     use HasFactory;
+
+    protected function casts(): array
+    {
+        return [
+            'category' => ProblemCategory::class,
+        ];
+    }
 
     /** Сколько инцидентов ссылаются на эту зону (значение хранится как строка в JSON-массиве). */
     public function usageCount(): int

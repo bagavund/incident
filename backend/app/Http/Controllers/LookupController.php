@@ -20,15 +20,36 @@ abstract class LookupController extends Controller
     /** @return class-string<Model&LookupValue> */
     abstract protected function model(): string;
 
+    /**
+     * Одна строка справочника в ответе API. Справочники с доп. полями
+     * (например, категория у типов инцидентов) переопределяют этот метод.
+     *
+     * @return array<string,mixed>
+     */
+    protected function rowPayload(Model $row): array
+    {
+        return [
+            'id' => $row->id,
+            'name' => $row->name,
+            'usage_count' => $row->usageCount(),
+        ];
+    }
+
+    /**
+     * Доп. атрибуты помимо name, которые справочник принимает на запись.
+     *
+     * @return array<string,mixed>
+     */
+    protected function extraAttributes(Request $request): array
+    {
+        return [];
+    }
+
     public function index(): JsonResponse
     {
         $model = $this->model();
 
-        $rows = $model::query()->orderBy('name')->get()->map(fn (Model $m) => [
-            'id' => $m->id,
-            'name' => $m->name,
-            'usage_count' => $m->usageCount(),
-        ]);
+        $rows = $model::query()->orderBy('name')->get()->map(fn (Model $m) => $this->rowPayload($m));
 
         return response()->json(['data' => $rows]);
     }
@@ -45,9 +66,9 @@ abstract class LookupController extends Controller
             ], 422);
         }
 
-        $row = $model::create(['name' => $name]);
+        $row = $model::create(['name' => $name, ...$this->extraAttributes($request)]);
 
-        return response()->json(['data' => ['id' => $row->id, 'name' => $row->name, 'usage_count' => 0]], 201);
+        return response()->json(['data' => $this->rowPayload($row)], 201);
     }
 
     public function update(Request $request, int $id): JsonResponse
@@ -64,12 +85,14 @@ abstract class LookupController extends Controller
             ], 422);
         }
 
-        DB::transaction(function () use ($row, $name) {
+        $extra = $this->extraAttributes($request);
+
+        DB::transaction(function () use ($row, $name, $extra) {
             $row->renameUsagesTo($name);
-            $row->update(['name' => $name]);
+            $row->update(['name' => $name, ...$extra]);
         });
 
-        return response()->json(['data' => ['id' => $row->id, 'name' => $row->name, 'usage_count' => $row->usageCount()]]);
+        return response()->json(['data' => $this->rowPayload($row)]);
     }
 
     public function destroy(int $id): Response|JsonResponse

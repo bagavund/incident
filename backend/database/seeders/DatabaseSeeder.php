@@ -9,15 +9,17 @@ class DatabaseSeeder extends Seeder
 {
     use WithoutModelEvents;
 
+    /**
+     * Свежее развёртывание поднимается чистым: администратор, справочники типов
+     * и критичностей, настройка SLA. Каталог сервисов и зон, пользователи-дежурные
+     * и сами инциденты заводятся уже в работающей системе (или импортом).
+     */
     public function run(): void
     {
         $this->call([
-            ServiceSeeder::class,
-            ZoneSeeder::class,
             IncidentTypeSeeder::class,
             CriticalitySeeder::class,
             UserSeeder::class,
-            IncidentSeeder::class,
         ]);
     }
 }

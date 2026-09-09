@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\ProblemCategory;
 use App\Models\IncidentType;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -14,6 +15,17 @@ class IncidentTypeFactory extends Factory
     {
         return [
             'name' => fake()->unique()->words(2, true),
+            'category' => ProblemCategory::Internal,
         ];
+    }
+
+    public function external(): static
+    {
+        return $this->state(['category' => ProblemCategory::External]);
+    }
+
+    public function internal(): static
+    {
+        return $this->state(['category' => ProblemCategory::Internal]);
     }
 }

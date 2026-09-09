@@ -3,7 +3,7 @@ import { ArrowLeft, ExternalLink, Pencil, PhoneCall, Trash2 } from 'lucide-react
 import { useAuth } from '../auth';
 import { apiGet } from '../lib/api';
 import { useStore } from '../store';
-import type { TimelineKind } from '../types';
+import { IMPACT_TARGET_LABELS, PROBLEM_CATEGORY_LABELS, type ImpactTarget, type TimelineKind } from '../types';
 import { Badge, Button, Card, CardHeader, cn, InfoHint, SlaBadge } from '../components/ui';
 import { IncidentForm } from './IncidentForm';
 
@@ -23,13 +23,14 @@ const ESCALATION_RESULT_COLOR: Record<string, 'neon' | 'red' | 'blue'> = {
 };
 
 export function IncidentDetail({ id, onBack }: { id: string; onBack: () => void }) {
-  const { getById, removeIncident } = useStore();
+  const { getById, removeIncident, lookups } = useStore();
   const { canEditIncident } = useAuth();
   const [editing, setEditing] = useState(false);
   const incident = useMemo(() => getById(id), [getById, id]);
   const metrics = incident?.metrics ?? null;
   const escalation = metrics?.escalation ?? null;
   const stub = metrics?.stubDuration ?? null;
+  const typeCategory = lookups.incidentTypes.rows.find((r) => r.name === incident?.type)?.category ?? null;
 
   const handleDelete = async () => {
     if (!incident) return;
@@ -83,6 +84,9 @@ export function IncidentDetail({ id, onBack }: { id: string; onBack: () => void 
                 {s}
               </Badge>
             ))}
+            {typeCategory && PROBLEM_CATEGORY_LABELS[typeCategory] !== incident.type && (
+              <Badge color="gray">{PROBLEM_CATEGORY_LABELS[typeCategory]}</Badge>
+            )}
             <Badge color="neon">{incident.type}</Badge>
             {incident.criticality && <Badge color="red">{incident.criticality}</Badge>}
           </div>
@@ -193,7 +197,10 @@ export function IncidentDetail({ id, onBack }: { id: string; onBack: () => void 
 
           <Card>
             <CardHeader title="Влияние" />
-            <p className="px-5 pb-5 pt-1 text-[13px] leading-relaxed text-gray-300">{incident.impact || '—'}</p>
+            <div className="px-5 pb-5 pt-1">
+              <ImpactTargets targets={incident.impactTargets} />
+              <p className="mt-2 text-[13px] leading-relaxed text-gray-300">{incident.impact || '—'}</p>
+            </div>
           </Card>
         </div>
 
@@ -208,15 +215,17 @@ export function IncidentDetail({ id, onBack }: { id: string; onBack: () => void 
             </dl>
           </Card>
 
-          {incident.stub && (
-            <Card>
-              <CardHeader title="Заглушка" />
+          <Card>
+            <CardHeader title="Заглушка" />
+            {incident.stub ? (
               <dl className="divide-y divide-white/[0.05] px-5 pb-2 pt-1 text-[13px]">
                 <Row k="Установлена в" v={incident.stub.on || '—'} />
                 <Row k="Снята в" v={incident.stub.off || '—'} />
               </dl>
-            </Card>
-          )}
+            ) : (
+              <p className="px-5 pb-5 pt-1 text-[13px] text-gray-500">Заглушка не устанавливалась</p>
+            )}
+          </Card>
 
           <Card>
             <CardHeader title="Зона ответственности" />
@@ -261,6 +270,7 @@ const AUDIT_FIELD_LABELS: Record<string, string> = {
   stub_off: 'Заглушка: снята в',
   cause: 'Причина',
   impact: 'Влияние',
+  impact_targets: 'Влияние на сайт/МП',
   task_link: 'Ссылка на задачу',
   zones: 'Зона ответственности',
   services: 'Сервисы',
@@ -351,6 +361,23 @@ function Row({ k, v }: { k: string; v: string }) {
     <div className="flex items-center justify-between py-2">
       <dt className="text-gray-500">{k}</dt>
       <dd className="font-mono text-xs text-gray-300">{v}</dd>
+    </div>
+  );
+}
+
+/** Затронутые площадки: null — не заполнено, [] — влияния не было. */
+function ImpactTargets({ targets }: { targets: ImpactTarget[] | null }) {
+  if (targets === null) return null;
+  if (targets.length === 0) {
+    return <p className="text-xs uppercase tracking-wide text-gray-500">Влияния на пользователей не было</p>;
+  }
+  return (
+    <div className="flex flex-wrap gap-2">
+      {targets.map((t) => (
+        <Badge key={t} color="red">
+          {IMPACT_TARGET_LABELS[t]}
+        </Badge>
+      ))}
     </div>
   );
 }

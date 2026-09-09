@@ -33,6 +33,13 @@ class IncidentRequest extends FormRequest
         $creating = $this->isMethod('post');
         $required = $creating ? 'required' : 'sometimes';
 
+        // Публикуемый инцидент обязан быть заполнен целиком; черновик — нет.
+        // Полноту проверяем при создании и при апдейте, который явно несёт статус
+        // (так фронт сохраняет форму) — частичный PATCH без статуса её не трогает.
+        $carriesStatus = $this->filled('status');
+        $publishing = ($creating || $carriesStatus)
+            && $this->input('status') === IncidentStatus::Published->value;
+
         return [
             'title' => [$required, 'string', 'max:255'],
             'services' => [$required, 'array', 'min:1'],
@@ -46,17 +53,21 @@ class IncidentRequest extends FormRequest
 
             'started_at' => [$required, 'date'],
             'detected_at' => ['nullable', 'date'],
-            'resolved_at' => ['nullable', 'date', 'after_or_equal:started_at'],
+            'resolved_at' => ['nullable', 'date', 'after_or_equal:started_at', Rule::requiredIf($publishing)],
 
             'stub_installed' => ['boolean'],
             'stub_on' => ['nullable', 'string', 'regex:/^\d{1,2}:\d{2}$/'],
             'stub_off' => ['nullable', 'string', 'regex:/^\d{1,2}:\d{2}$/'],
 
             'cause' => ['nullable', 'string'],
-            'impact' => ['nullable', 'string'],
+            'impact' => ['nullable', 'string', Rule::requiredIf($publishing)],
             'task_link' => ['nullable', 'string', 'max:2048'],
 
-            'zones' => ['nullable', 'array'],
+            // present пропускает [] («влияния не было»), но отклоняет null при публикации.
+            'impact_targets' => [$publishing ? 'present' : 'nullable', 'array'],
+            'impact_targets.*' => ['string', Rule::in(['site', 'app'])],
+
+            'zones' => $publishing ? ['required', 'array', 'min:1'] : ['nullable', 'array'],
             'zones.*' => ['string', Rule::exists('zones', 'name')],
 
             'timeline' => ['nullable', 'array'],

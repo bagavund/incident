@@ -5,39 +5,37 @@ namespace Database\Seeders;
 use App\Enums\UserRole;
 use App\Models\User;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Str;
+use RuntimeException;
 
 class UserSeeder extends Seeder
 {
-    /** Username => [name, position] — дежурные, на которых ссылается IncidentSeeder. */
-    public const ON_DUTY = [
-        'ivanov' => ['Иванов Иван', 'Тех. поддержка'],
-        'petrova' => ['Петрова Анна', 'Тех. поддержка'],
-        'sidorov' => ['Сидоров Пётр', 'Тех. поддержка'],
-        'kuznecova' => ['Кузнецова Мария', 'Тех. поддержка'],
-    ];
-
+    /**
+     * Единственная учётка на свежем развёртывании — администратор; остальных заводит он сам.
+     * Пароль берётся из ADMIN_PASSWORD. На проде переменная обязательна; вне прода,
+     * если её нет, генерируется случайный пароль и печатается в вывод сидера.
+     */
     public function run(): void
     {
+        $password = (string) env('ADMIN_PASSWORD', '');
+
+        if ($password === '') {
+            if (app()->environment('production')) {
+                throw new RuntimeException('ADMIN_PASSWORD must be set to seed the admin account in production.');
+            }
+
+            $password = Str::password(16);
+            $this->command?->warn("ADMIN_PASSWORD не задан — сгенерирован пароль администратора: {$password}");
+        }
+
         User::updateOrCreate(
             ['username' => 'admin'],
             [
                 'name' => 'Администратор',
-                'password' => 'password',
+                'password' => $password,
                 'position' => 'Руководитель поддержки',
                 'role' => UserRole::Admin,
             ],
         );
-
-        foreach (self::ON_DUTY as $username => [$name, $position]) {
-            User::updateOrCreate(
-                ['username' => $username],
-                [
-                    'name' => $name,
-                    'password' => 'password',
-                    'position' => $position,
-                    'role' => UserRole::OnDuty,
-                ],
-            );
-        }
     }
 }
