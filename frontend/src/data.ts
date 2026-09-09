@@ -25,6 +25,20 @@ const pad = (n: number) => String(n).padStart(2, '0');
 export const fmtDT = (x: Date) =>
   `${pad(x.getDate())}.${pad(x.getMonth() + 1)}.${x.getFullYear()} ${pad(x.getHours())}:${pad(x.getMinutes())}`;
 
+const MONTHS_RU = [
+  'января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
+  'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря',
+];
+
+/** "30.06.2026 14:20" → "30 июня 2026, 14:20". Пустую/битую строку возвращает как есть. */
+export function fmtHumanDT(display: string): string {
+  const [d, t] = (display ?? '').split(' ');
+  const [dd, mm, yyyy] = (d ?? '').split('.').map(Number);
+  if (!dd || !mm || !yyyy || mm > 12) return display ?? '';
+  const base = `${dd} ${MONTHS_RU[mm - 1]} ${yyyy}`;
+  return t ? `${base}, ${t}` : base;
+}
+
 export function toInputDT(display: string): string {
   const [d, t] = display.split(' ');
   const [dd, mm, yyyy] = d.split('.');

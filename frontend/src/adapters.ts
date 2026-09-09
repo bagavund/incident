@@ -45,8 +45,8 @@ export interface ApiIncident {
   code: string;
   title: string;
   services?: { id: number; name: string }[];
-  type: string;
-  criticality: string;
+  type: string | null;
+  criticality: string | null;
   status: EnumPayload;
   sla: EnumPayload;
   on_duty: { id: number; name: string } | null;
@@ -130,8 +130,8 @@ export function mapIncident(api: ApiIncident): FullIncident {
     title: api.title,
     status: (api.status.value as FullIncident['status']) ?? 'draft',
     services: api.services?.map((s) => s.name) ?? [],
-    type: api.type,
-    criticality: api.criticality,
+    type: api.type ?? '',
+    criticality: api.criticality ?? '',
     sla: (api.sla.label as FullIncident['sla']) ?? 'Соблюден',
     onDuty: api.on_duty ? { id: api.on_duty.id, name: api.on_duty.name } : null,
     createdAt: fromIso(api.created_at) || fromIso(api.detected_at),
@@ -202,8 +202,10 @@ export function mapIncidentToPayload(inc: IncidentDraft, serviceIds: number[]) {
   return {
     title: inc.title,
     services: serviceIds,
-    type: inc.type,
-    criticality: inc.criticality,
+    // Черновик может быть не заполнен — пустые справочные поля не отправляем,
+    // иначе бэкенд проверит "" по справочнику и вернёт ошибку.
+    type: inc.type || undefined,
+    criticality: inc.criticality || undefined,
     status: inc.status,
     on_duty_user_id: inc.onDutyUserId,
     started_at: inc.startedAt ? iso(inc.startedAt) : undefined,

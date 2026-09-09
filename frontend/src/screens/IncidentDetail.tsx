@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, ExternalLink, Pencil, PhoneCall, Trash2 } from 'lucide-react';
 import { useAuth } from '../auth';
+import { fmtHumanDT } from '../data';
 import { apiGet } from '../lib/api';
 import { safeExternalUrl } from '../lib/url';
 import { useStore } from '../store';
@@ -149,9 +150,9 @@ export function IncidentDetail({ id, onBack }: { id: string; onBack: () => void 
                       />
                       <div className="flex items-baseline gap-3">
                         <span className="font-mono text-xs text-neon">{s.time || '—'}</span>
-                        <span className="text-xs uppercase tracking-wide text-gray-500">{s.kind}</span>
+                        <span className="text-xs font-medium text-gray-400">{s.kind}</span>
                       </div>
-                      <p className="mt-1 text-[13px] text-gray-200">{s.action || '—'}</p>
+                      {s.action && <p className="mt-1 text-[13px] text-gray-200">{s.action}</p>}
                     </li>
                   ))}
               </ol>
@@ -211,8 +212,8 @@ export function IncidentDetail({ id, onBack }: { id: string; onBack: () => void 
             <CardHeader title="Тайминги" />
             <dl className="divide-y divide-white/[0.05] px-5 pb-2 pt-1 text-[13px]">
               <Row k="Дежурный" v={incident.onDuty?.name || '—'} />
-              <Row k="Начало инцидента" v={incident.startedAt} />
-              <Row k="Обнаружен" v={incident.detectedAt} />
+              <Row k="Начало инцидента" v={fmtHumanDT(incident.startedAt) || '—'} />
+              <Row k="Обнаружен" v={fmtHumanDT(incident.detectedAt) || '—'} />
             </dl>
           </Card>
 
@@ -361,7 +362,7 @@ function Row({ k, v }: { k: string; v: string }) {
   return (
     <div className="flex items-center justify-between py-2">
       <dt className="text-gray-500">{k}</dt>
-      <dd className="font-mono text-xs text-gray-300">{v}</dd>
+      <dd className="text-[13px] text-gray-300">{v}</dd>
     </div>
   );
 }
@@ -370,7 +371,7 @@ function Row({ k, v }: { k: string; v: string }) {
 function ImpactTargets({ targets }: { targets: ImpactTarget[] | null }) {
   if (targets === null) return null;
   if (targets.length === 0) {
-    return <p className="text-xs uppercase tracking-wide text-gray-500">Влияния на пользователей не было</p>;
+    return <p className="text-xs text-gray-500">Влияния на пользователей не было</p>;
   }
   return (
     <div className="flex flex-wrap gap-2">

@@ -56,7 +56,7 @@ class IncidentController extends Controller
 
             $incident->save();
 
-            $incident->services()->sync($data['services']);
+            $incident->services()->sync($data['services'] ?? []);
 
             TimelineSync::apply(
                 $incident,

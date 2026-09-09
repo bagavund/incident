@@ -31,27 +31,29 @@ class IncidentRequest extends FormRequest
     public function rules(): array
     {
         $creating = $this->isMethod('post');
-        $required = $creating ? 'required' : 'sometimes';
 
-        // Публикуемый инцидент обязан быть заполнен целиком; черновик — нет.
         // Полноту проверяем при создании и при апдейте, который явно несёт статус
         // (так фронт сохраняет форму) — частичный PATCH без статуса её не трогает.
         $carriesStatus = $this->filled('status');
         $publishing = ($creating || $carriesStatus)
             && $this->input('status') === IncidentStatus::Published->value;
 
+        // Черновик требует только название; всё остальное обязательно лишь при публикации.
+        $whenFull = $publishing ? 'required' : 'sometimes';
+        $titleRule = $creating || $carriesStatus ? 'required' : 'sometimes';
+
         return [
-            'title' => [$required, 'string', 'max:255'],
-            'services' => [$required, 'array', 'min:1'],
+            'title' => [$titleRule, 'string', 'max:255'],
+            'services' => $publishing ? ['required', 'array', 'min:1'] : ['sometimes', 'array'],
             'services.*' => ['integer', Rule::exists('services', 'id')],
-            'type' => [$required, 'string', Rule::exists('incident_types', 'name')],
-            'criticality' => [$required, 'string', Rule::exists('criticalities', 'name')],
-            'on_duty_user_id' => [$required, 'integer', Rule::exists('users', 'id')],
+            'type' => [$whenFull, 'nullable', 'string', Rule::exists('incident_types', 'name')],
+            'criticality' => [$whenFull, 'nullable', 'string', Rule::exists('criticalities', 'name')],
+            'on_duty_user_id' => [$whenFull, 'nullable', 'integer', Rule::exists('users', 'id')],
 
             // sla клиентом не задаётся — его выносит SlaEvaluator на сервере.
             'status' => ['nullable', Rule::enum(IncidentStatus::class)],
 
-            'started_at' => [$required, 'date'],
+            'started_at' => [$whenFull, 'nullable', 'date'],
             'detected_at' => ['nullable', 'date'],
             'resolved_at' => ['nullable', 'date', 'after_or_equal:started_at', Rule::requiredIf($publishing)],
 

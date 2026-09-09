@@ -166,10 +166,27 @@ class IncidentTest extends TestCase
 
     public function test_validation_errors_are_returned_as_422(): void
     {
+        // Черновик требует только название; переданное неверное значение всё равно проверяется.
         $this->actingAsAdmin()
             ->postJson('/api/incidents', ['title' => '', 'type' => 'bogus'])
             ->assertStatus(422)
-            ->assertJsonValidationErrors(['title', 'services', 'type', 'criticality', 'on_duty_user_id', 'started_at']);
+            ->assertJsonValidationErrors(['title', 'type'])
+            ->assertJsonMissingValidationErrors(['services', 'criticality', 'on_duty_user_id', 'started_at']);
+    }
+
+    public function test_a_draft_needs_only_a_title(): void
+    {
+        $this->actingAsAdmin()
+            ->postJson('/api/incidents', ['title' => 'Черновик без деталей'])
+            ->assertCreated();
+    }
+
+    public function test_publishing_requires_the_base_fields_too(): void
+    {
+        $this->actingAsAdmin()
+            ->postJson('/api/incidents', ['title' => 'Публикация вслепую', 'status' => 'published'])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['services', 'type', 'criticality', 'on_duty_user_id', 'started_at']);
     }
 
     public function test_publishing_requires_the_postmortem_fields(): void

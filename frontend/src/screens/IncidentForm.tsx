@@ -38,6 +38,11 @@ import {
   Textarea,
 } from '../components/ui';
 
+/** Ключи обязательных полей формы — для подсветки при неудачной валидации. */
+type FieldKey =
+  | 'title' | 'services' | 'type' | 'criticality' | 'startedAt' | 'onDuty'
+  | 'cause' | 'resolvedAt' | 'zones' | 'impact' | 'impactTargets';
+
 const KIND_COLOR: Record<TimelineKind, string> = {
   Обнаружено: 'bg-blue-400',
   Диагностика: 'bg-med',
@@ -201,6 +206,8 @@ export function IncidentForm({
   };
   const notified = steps.some((s) => s.kind === 'Информирование');
   const warRoomCreated = steps.some((s) => s.kind === 'Собран war room');
+  /** Редактируемые шаги — всё, кроме замыкающего «Решена» (он показан отдельной строкой). */
+  const middleSteps = steps.filter((s) => s.kind !== 'Решена');
 
   /** Категория проблемы = категория выбранного типа; она делит зоны ответственности. */
   const category = typeRows.find((r) => r.name === type)?.category ?? null;
@@ -255,38 +262,71 @@ export function IncidentForm({
   const updateEscalation = (id: string, patch: Partial<EscalationAttempt>) =>
     setEscalations((list) => list.map((x) => (x.id === id ? { ...x, ...patch } : x)));
 
+  /* ---------------------------------------------------------------- */
+  /* Валидация: подсветка незаполненных обязательных полей             */
+  /* ---------------------------------------------------------------- */
+  const [invalid, setInvalid] = useState<Set<FieldKey>>(new Set());
+  const bad = (k: FieldKey) => invalid.has(k);
+  const reqError = (k: FieldKey) => (invalid.has(k) ? 'Обязательное поле' : undefined);
+
+  // По мере заполнения снимаем подсветку и убираем сводку об ошибке.
+  useEffect(() => {
+    if (invalid.size === 0) return;
+    const filled: Record<FieldKey, boolean> = {
+      title: !!title.trim(),
+      services: activeServices.length > 0,
+      type: !!type,
+      criticality: !!criticality,
+      startedAt: !!startedAtInput,
+      onDuty: !!onDutyUserId,
+      cause: !!cause.trim(),
+      resolvedAt: !!resolvedAtInput,
+      zones: zoneOptions.some((z) => zoneChecks[z]),
+      impact: !!impact.trim(),
+      impactTargets: impactNone || impactTargets.length > 0,
+    };
+    const next = new Set([...invalid].filter((k) => !filled[k]));
+    if (next.size !== invalid.size) {
+      setInvalid(next);
+      if (next.size === 0) setError(null);
+    }
+  }, [
+    invalid, title, activeServices, type, criticality, startedAtInput, onDutyUserId,
+    cause, resolvedAtInput, zoneChecks, zoneOptions, impact, impactNone, impactTargets,
+  ]);
+
   const save = async (asDraft = false) => {
     // Сохраняем только видимые (подходящие категории) отмеченные зоны.
     const activeZones = zoneOptions.filter((z) => zoneChecks[z]);
 
-    if (
-      !title.trim() ||
-      activeServices.length === 0 ||
-      !type ||
-      !criticality ||
-      !startedAtInput ||
-      !onDutyUserId
-    ) {
-      setError('Заполните обязательные поля: название, сервис, тип, критичность, дата начала, дежурный.');
+    const missing: { key: FieldKey; id: string }[] = [];
+    if (!title.trim()) missing.push({ key: 'title', id: 'f-title' });
+    if (!asDraft) {
+      if (activeServices.length === 0) missing.push({ key: 'services', id: 'f-services' });
+      if (!type) missing.push({ key: 'type', id: 'f-type' });
+      if (!criticality) missing.push({ key: 'criticality', id: 'f-criticality' });
+      if (!startedAtInput) missing.push({ key: 'startedAt', id: 'f-startedAt' });
+      if (!onDutyUserId) missing.push({ key: 'onDuty', id: 'f-onDuty' });
+      if (!cause.trim()) missing.push({ key: 'cause', id: 'f-cause' });
+      if (!resolvedAtInput) missing.push({ key: 'resolvedAt', id: 'f-resolvedAt' });
+      if (activeZones.length === 0) missing.push({ key: 'zones', id: 'f-zones' });
+      if (!impact.trim()) missing.push({ key: 'impact', id: 'f-impact' });
+      if (!impactNone && impactTargets.length === 0) missing.push({ key: 'impactTargets', id: 'f-impactTargets' });
+    }
+
+    if (missing.length > 0) {
+      setInvalid(new Set(missing.map((m) => m.key)));
+      setError(
+        asDraft
+          ? 'Укажите название инцидента.'
+          : `Заполните обязательные поля — они подсвечены (${missing.length}).`,
+      );
+      const el = document.getElementById(missing[0].id);
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el?.querySelector<HTMLElement>('input, select, textarea, button')?.focus();
       return;
     }
-    if (!asDraft) {
-      if (!cause.trim()) {
-        setError('Для публикации укажите причину инцидента.');
-        return;
-      }
-      if (
-        !resolvedAtInput ||
-        activeZones.length === 0 ||
-        !impact.trim() ||
-        (!impactNone && impactTargets.length === 0)
-      ) {
-        setError(
-          'Для публикации заполните: дату завершения, зону ответственности, описание влияния и влияние на сайт/МП.',
-        );
-        return;
-      }
-    }
+    setInvalid(new Set());
 
     const startedAt = fromInputDT(startedAtInput);
     const detectStep = steps.find((s) => s.kind === 'Обнаружено');
@@ -337,8 +377,8 @@ export function IncidentForm({
         </div>
         <div className="flex items-center gap-2">
           {error && (
-            <span className="flex items-center gap-1.5 text-xs text-crit">
-              <AlertCircle size={13} />
+            <span className="flex items-center gap-1.5 rounded-lg border border-crit/30 bg-crit/[0.08] px-3 py-1.5 text-[13px] text-crit">
+              <AlertCircle size={14} className="flex-none" />
               {error}
             </span>
           )}
@@ -365,19 +405,21 @@ export function IncidentForm({
             <CardHeader title="Общая информация" />
             <div className="grid grid-cols-1 gap-4 p-5 pt-2 sm:grid-cols-2">
               <div className="sm:col-span-2">
-                <Field label="Название инцидента" required>
+                <Field id="f-title" label="Название инцидента" required error={reqError('title')}>
                   <Input
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     placeholder="Краткое описание инцидента"
+                    aria-invalid={bad('title')}
                   />
                 </Field>
               </div>
               <div className="sm:col-span-2">
-                <Field label="Дежурный" required>
+                <Field id="f-onDuty" label="Дежурный" required error={reqError('onDuty')}>
                   <Select
                     value={onDutyUserId}
                     onChange={(e) => setOnDutyUserId(e.target.value ? Number(e.target.value) : '')}
+                    aria-invalid={bad('onDuty')}
                   >
                     <option value="" disabled>
                       Выберите дежурного
@@ -390,21 +432,25 @@ export function IncidentForm({
                   </Select>
                 </Field>
               </div>
-              <Field label="Дата и время начала" required>
+              <Field id="f-startedAt" label="Дата и время начала" required error={reqError('startedAt')}>
                 <Input
                   type="datetime-local"
                   value={startedAtInput}
                   onChange={(e) => setStartedAtInput(e.target.value)}
+                  aria-invalid={bad('startedAt')}
                 />
                 <p className="mt-1 text-[11px] text-gray-600">Первый шаг в хронологии — «Начало инцидента»</p>
               </Field>
-              <Field label="Дата и время завершения">
+              <Field id="f-resolvedAt" label="Дата и время завершения" error={reqError('resolvedAt')}>
                 <Input
                   type="datetime-local"
                   value={resolvedAtInput}
                   onChange={(e) => updateResolvedAt(e.target.value)}
+                  aria-invalid={bad('resolvedAt')}
                 />
-                <p className="mt-1 text-[11px] text-gray-600">Задаёт время шага «Решена» в хронологии</p>
+                <p className="mt-1 text-[11px] text-gray-600">
+                  Обязательно для публикации. Задаёт время шага «Решена» в хронологии.
+                </p>
               </Field>
             </div>
           </Card>
@@ -430,122 +476,86 @@ export function IncidentForm({
               </div>
 
               <ol className="relative space-y-3 border-l border-white/10 pl-6">
-                {/* Начало инцидента — служебный шаг, время из поля «Дата и время начала». Не сохраняется. */}
-                <li className="relative">
-                  <span className="absolute -left-[31px] top-3 h-2.5 w-2.5 rounded-full bg-blue-400 ring-4 ring-bg" />
-                  <div className="rounded-lg border border-white/[0.04] bg-white/[0.015] px-3 py-2.5">
-                    <div className="flex items-center gap-2.5">
-                      <input
-                        type="time"
-                        value={startedAtInput.split('T')[1] ?? ''}
-                        readOnly
-                        tabIndex={-1}
-                        title="Меняется в поле «Дата и время начала»"
-                        className="w-[88px] flex-none cursor-not-allowed rounded-md border border-white/[0.06] bg-white/[0.02] px-2 py-1.5 font-mono text-xs text-gray-500 outline-none"
-                      />
-                      <span className="flex items-center gap-1.5 text-[13px] text-gray-300">
-                        Начало инцидента
-                        <Lock size={11} className="text-gray-600" />
-                      </span>
-                    </div>
-                    <p className="mt-1.5 text-[11px] text-gray-600">Время — из поля «Дата и время начала» наверху</p>
-                  </div>
-                </li>
+                <TimelineBookend
+                  time={startedAtInput.split('T')[1] ?? ''}
+                  label="Начало инцидента"
+                  hint="Время — из поля «Дата и время начала» наверху"
+                  dotClass="bg-blue-400"
+                />
 
-                {steps.map((s, idx) => {
-                  const locked = s.kind === 'Решена';
-                  return (
-                    <li key={s.id} className="relative">
-                      <span
-                        className={cn(
-                          'absolute -left-[31px] top-2.5 h-2.5 w-2.5 rounded-full ring-4 ring-bg',
-                          s.custom ? 'bg-gray-600' : KIND_COLOR[s.kind],
-                        )}
-                      />
-                      <div className="rounded-lg border border-white/[0.06] bg-white/[0.015] p-3">
-                        <div className="grid grid-cols-[16px_100px_1fr_auto] items-start gap-2">
-                          <div className="mt-1 flex flex-none flex-col text-gray-700">
-                            {!locked && (
-                              <>
-                                <button
-                                  onClick={() => moveStep(s.id, -1)}
-                                  disabled={idx === 0}
-                                  title="Переместить выше"
-                                  className="hover:text-gray-300 disabled:cursor-not-allowed disabled:opacity-20"
-                                >
-                                  <ChevronUp size={14} />
-                                </button>
-                                <button
-                                  onClick={() => moveStep(s.id, 1)}
-                                  disabled={idx === steps.length - 1}
-                                  title="Переместить ниже"
-                                  className="hover:text-gray-300 disabled:cursor-not-allowed disabled:opacity-20"
-                                >
-                                  <ChevronDown size={14} />
-                                </button>
-                              </>
-                            )}
-                          </div>
-                          {locked ? (
-                            <input
-                              type="time"
-                              value={resolvedAtInput.split('T')[1] ?? ''}
-                              readOnly
-                              tabIndex={-1}
-                              title="Меняется в поле «Дата и время завершения»"
-                              className="w-full cursor-not-allowed rounded-md border border-white/[0.06] bg-white/[0.02] px-2 py-1.5 font-mono text-xs text-gray-500 outline-none"
-                            />
-                          ) : (
-                            <input
-                              type="time"
-                              value={s.time}
-                              onChange={(e) => updateStep(s.id, { time: e.target.value })}
-                              className="rounded-md border border-white/[0.08] bg-white/[0.02] px-2 py-1.5 font-mono text-xs text-neon outline-none focus:border-neon/60"
-                            />
-                          )}
-                          <AutoTextarea
-                            value={s.action}
-                            onChange={(e) => updateStep(s.id, { action: e.target.value })}
-                            placeholder="Что было проделано"
-                            className="rounded-md border border-white/[0.08] bg-white/[0.02] px-2 py-1.5 text-[13px] leading-snug text-gray-200 outline-none focus:border-neon/60"
-                          />
-                          {locked ? (
-                            <span className="flex h-[34px] w-[34px] flex-none items-center justify-center text-gray-700">
-                              <Lock size={13} />
-                            </span>
-                          ) : (
-                            <button
-                              onClick={() => removeStep(s.id)}
-                              className="flex h-[34px] items-center justify-center rounded-md border border-white/[0.08] px-2 text-gray-600 transition-colors hover:border-crit/40 hover:text-crit"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          )}
+                {middleSteps.map((s, i) => (
+                  <li key={s.id} className="relative">
+                    <span
+                      className={cn(
+                        'absolute -left-[31px] top-2.5 h-2.5 w-2.5 rounded-full ring-4 ring-bg',
+                        s.custom ? 'bg-gray-600' : KIND_COLOR[s.kind],
+                      )}
+                    />
+                    <div className="rounded-lg border border-white/[0.06] bg-white/[0.015] p-3">
+                      <div className="grid grid-cols-[16px_100px_1fr_auto] items-start gap-2">
+                        <div className="mt-1 flex flex-none flex-col text-gray-700">
+                          <button
+                            onClick={() => moveStep(s.id, -1)}
+                            disabled={i === 0}
+                            title="Переместить выше"
+                            className="hover:text-gray-300 disabled:cursor-not-allowed disabled:opacity-20"
+                          >
+                            <ChevronUp size={14} />
+                          </button>
+                          <button
+                            onClick={() => moveStep(s.id, 1)}
+                            disabled={i === middleSteps.length - 1}
+                            title="Переместить ниже"
+                            className="hover:text-gray-300 disabled:cursor-not-allowed disabled:opacity-20"
+                          >
+                            <ChevronDown size={14} />
+                          </button>
                         </div>
-
-                        {locked ? (
-                          <p className="mt-2 pl-6 text-[11px] text-gray-600">
-                            Время — из поля «Дата и время завершения» наверху
-                          </p>
-                        ) : s.custom ? (
-                          <p className="mt-2 pl-6 font-mono text-[11px] text-gray-600">— промежуточный шаг</p>
-                        ) : (
-                          <div className="mt-2 ml-6 w-[calc(100%-1.5rem)]">
-                            <Select
-                              value={s.kind}
-                              onChange={(e) => updateStep(s.id, { kind: e.target.value as TimelineKind })}
-                              className="py-1.5 text-xs"
-                            >
-                              {TIMELINE_KINDS.map((k) => (
-                                <option key={k}>{k}</option>
-                              ))}
-                            </Select>
-                          </div>
-                        )}
+                        <input
+                          type="time"
+                          value={s.time}
+                          onChange={(e) => updateStep(s.id, { time: e.target.value })}
+                          className="rounded-md border border-white/[0.08] bg-white/[0.02] px-2 py-1.5 font-mono text-xs text-neon outline-none focus:border-neon/60"
+                        />
+                        <AutoTextarea
+                          value={s.action}
+                          onChange={(e) => updateStep(s.id, { action: e.target.value })}
+                          placeholder="Что было проделано"
+                          className="rounded-md border border-white/[0.08] bg-white/[0.02] px-2 py-1.5 text-[13px] leading-snug text-gray-200 outline-none focus:border-neon/60"
+                        />
+                        <button
+                          onClick={() => removeStep(s.id)}
+                          className="flex h-[34px] items-center justify-center rounded-md border border-white/[0.08] px-2 text-gray-600 transition-colors hover:border-crit/40 hover:text-crit"
+                        >
+                          <Trash2 size={14} />
+                        </button>
                       </div>
-                    </li>
-                  );
-                })}
+
+                      {s.custom ? (
+                        <p className="mt-2 pl-6 text-[11px] text-gray-600">Промежуточный шаг</p>
+                      ) : (
+                        <div className="mt-2 ml-6 w-[calc(100%-1.5rem)]">
+                          <Select
+                            value={s.kind}
+                            onChange={(e) => updateStep(s.id, { kind: e.target.value as TimelineKind })}
+                            className="py-1.5 text-xs"
+                          >
+                            {TIMELINE_KINDS.filter((k) => k !== 'Решена').map((k) => (
+                              <option key={k}>{k}</option>
+                            ))}
+                          </Select>
+                        </div>
+                      )}
+                    </div>
+                  </li>
+                ))}
+
+                <TimelineBookend
+                  time={resolvedAtInput.split('T')[1] ?? ''}
+                  label="Решена"
+                  hint="Время — из поля «Дата и время завершения» наверху"
+                  dotClass="bg-neon"
+                />
               </ol>
 
               <button
@@ -665,8 +675,18 @@ export function IncidentForm({
             <CardHeader title="Итоговая информация" subtitle="Причина, влияние на пользователей и ссылка на задачу" />
             <div className="grid grid-cols-1 gap-4 p-5 pt-2 sm:grid-cols-2">
               <div className="sm:col-span-2">
-                <Field label="Влияние на сайт / МП" required>
-                  <div className="rounded-lg border border-white/[0.06] bg-white/[0.015] px-3 py-1">
+                <Field
+                  id="f-impactTargets"
+                  label="Влияние на сайт / МП"
+                  required
+                  error={reqError('impactTargets')}
+                >
+                  <div
+                    className={cn(
+                      'rounded-lg border bg-white/[0.015] px-3 py-1',
+                      bad('impactTargets') ? 'border-crit/60' : 'border-white/[0.06]',
+                    )}
+                  >
                     {IMPACT_TARGETS.map((t) => (
                       <Checkbox
                         key={t}
@@ -679,18 +699,20 @@ export function IncidentForm({
                   </div>
                 </Field>
               </div>
-              <Field label="Причина инцидента" required>
+              <Field id="f-cause" label="Причина инцидента" required error={reqError('cause')}>
                 <Textarea
                   value={cause}
                   onChange={(e) => setCause(e.target.value)}
                   placeholder="Опишите первопричину инцидента..."
+                  aria-invalid={bad('cause')}
                 />
               </Field>
-              <Field label="Описание влияния" required>
+              <Field id="f-impact" label="Описание влияния" required error={reqError('impact')}>
                 <Textarea
                   value={impact}
                   onChange={(e) => setImpact(e.target.value)}
                   placeholder="Как инцидент повлиял на пользователей и бизнес..."
+                  aria-invalid={bad('impact')}
                 />
               </Field>
               <div className="sm:col-span-2">
@@ -715,8 +737,8 @@ export function IncidentForm({
           <Card>
             <CardHeader title="Тип и критичность" />
             <div className="space-y-3 p-4 pt-1">
-              <Field label="Тип (категория проблемы)" required>
-                <Select value={type} onChange={(e) => changeType(e.target.value)}>
+              <Field id="f-type" label="Тип (категория проблемы)" required error={reqError('type')}>
+                <Select value={type} onChange={(e) => changeType(e.target.value)} aria-invalid={bad('type')}>
                   <option value="" disabled>
                     Выберите тип
                   </option>
@@ -725,8 +747,8 @@ export function IncidentForm({
                   ))}
                 </Select>
               </Field>
-              <Field label="Критичность" required>
-                <Select value={criticality} onChange={(e) => setCriticality(e.target.value)}>
+              <Field id="f-criticality" label="Критичность" required error={reqError('criticality')}>
+                <Select value={criticality} onChange={(e) => setCriticality(e.target.value)} aria-invalid={bad('criticality')}>
                   <option value="" disabled>
                     Выберите критичность
                   </option>
@@ -758,20 +780,28 @@ export function IncidentForm({
 
           <Card>
             <CardHeader title="Затронутые сервисы" subtitle="Можно выбрать несколько" />
-            <div className="p-4 pt-1">
+            <div id="f-services" className="scroll-mt-24 p-4 pt-1">
               <MultiSelect
                 options={serviceOptions}
                 selected={activeServices}
                 onChange={setActiveServices}
                 placeholder="Выберите сервисы"
                 searchPlaceholder="Поиск сервиса..."
+                invalid={bad('services')}
               />
+              {bad('services') && <p className="mt-1 text-[11px] text-crit">Выберите хотя бы один сервис</p>}
             </div>
           </Card>
 
           <Card>
             <CardHeader title="Зона ответственности" subtitle="Зависит от типа проблемы" />
-            <div className="p-4 pt-1">
+            <div
+              id="f-zones"
+              className={cn(
+                'scroll-mt-24 p-4 pt-1',
+                bad('zones') && 'rounded-lg border border-crit/50 bg-crit/[0.04]',
+              )}
+            >
               {!type && <p className="text-xs text-gray-600">Сначала выберите тип проблемы</p>}
               {type && zoneOptions.length === 0 && (
                 <p className="text-xs text-gray-600">Для этой категории нет зон — добавьте их в администрировании</p>
@@ -784,10 +814,46 @@ export function IncidentForm({
                   onChange={(v) => setZoneChecks((s) => ({ ...s, [z]: v }))}
                 />
               ))}
+              {bad('zones') && <p className="mt-1 text-[11px] text-crit">Отметьте зону ответственности</p>}
             </div>
           </Card>
         </div>
       </div>
     </div>
+  );
+}
+
+/** Закреплённый край хронологии — «Начало инцидента» / «Решена». Время только для чтения, из полей дат. */
+function TimelineBookend({
+  time,
+  label,
+  hint,
+  dotClass,
+}: {
+  time: string;
+  label: string;
+  hint: string;
+  dotClass: string;
+}) {
+  return (
+    <li className="relative">
+      <span className={cn('absolute -left-[31px] top-3 h-2.5 w-2.5 rounded-full ring-4 ring-bg', dotClass)} />
+      <div className="rounded-lg border border-white/[0.04] bg-white/[0.015] px-3 py-2.5">
+        <div className="flex items-center gap-2.5">
+          <input
+            type="time"
+            value={time}
+            readOnly
+            tabIndex={-1}
+            className="w-[88px] flex-none cursor-not-allowed rounded-md border border-white/[0.06] bg-white/[0.02] px-2 py-1.5 font-mono text-xs text-gray-500 outline-none"
+          />
+          <span className="flex items-center gap-1.5 text-[13px] text-gray-300">
+            {label}
+            <Lock size={11} className="text-gray-600" />
+          </span>
+        </div>
+        <p className="mt-1.5 text-[11px] text-gray-600">{hint}</p>
+      </div>
+    </li>
   );
 }

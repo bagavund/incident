@@ -115,7 +115,7 @@ export function SlaBadge({ sla }: { sla: SlaState }) {
 /* Inputs                                                              */
 /* ------------------------------------------------------------------ */
 const fieldBase =
-  'w-full rounded-lg border border-white/[0.08] bg-white/[0.02] px-3 py-2 text-sm text-gray-200 outline-none transition-colors focus:border-neon/60 focus:bg-white/[0.03] placeholder:text-gray-600';
+  'w-full rounded-lg border border-white/[0.08] bg-white/[0.02] px-3 py-2 text-sm text-gray-200 outline-none transition-colors focus:border-neon/60 focus:bg-white/[0.03] placeholder:text-gray-600 aria-[invalid=true]:border-crit/70 aria-[invalid=true]:bg-crit/[0.05]';
 
 export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
   ({ className, ...rest }, ref) => (
@@ -185,16 +185,21 @@ function Label({ children, required }: { children: React.ReactNode; required?: b
 export function Field({
   label,
   required,
+  error,
+  id,
   children,
 }: {
   label: string;
   required?: boolean;
+  error?: string | null;
+  id?: string;
   children: React.ReactNode;
 }) {
   return (
-    <div>
+    <div id={id} className={id ? 'scroll-mt-24' : undefined}>
       <Label required={required}>{label}</Label>
       {children}
+      {error && <p className="mt-1 text-[11px] text-crit">{error}</p>}
     </div>
   );
 }
@@ -249,12 +254,14 @@ export function MultiSelect({
   onChange,
   placeholder = 'Выберите значения',
   searchPlaceholder = 'Поиск...',
+  invalid,
 }: {
   options: string[];
   selected: string[];
   onChange: (next: string[]) => void;
   placeholder?: string;
   searchPlaceholder?: string;
+  invalid?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -290,6 +297,7 @@ export function MultiSelect({
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
+        aria-invalid={invalid || undefined}
         className={cn(
           fieldBase,
           'flex min-h-[38px] cursor-pointer items-center justify-between gap-2 text-left',
@@ -382,8 +390,11 @@ export function InfoHint({ text }: { text: string }) {
 /* ------------------------------------------------------------------ */
 export function Delta({ value, up }: { value: number; up: boolean }) {
   return (
-    <span className={cn('text-xs font-semibold tabular-nums', up ? 'text-neon' : 'text-crit')}>
-      {up ? '+' : ''}
+    <span
+      title="Изменение относительно предыдущего периода такой же длины"
+      className={cn('text-xs font-semibold tabular-nums', up ? 'text-neon' : 'text-crit')}
+    >
+      {value > 0 ? '+' : ''}
       {value}%
     </span>
   );
