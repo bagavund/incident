@@ -1,4 +1,3 @@
-import { fmtDT, parseDT } from './data';
 import {
   ESCALATION_CHANNEL_LABELS,
   ESCALATION_KIND_LABELS,
@@ -105,8 +104,25 @@ function toValue(kind: keyof typeof TO_VALUE, label: string): string {
 /** Числовой id, присвоенный бэкендом, отличаем от клиентского crypto.randomUUID(). */
 const isBackendId = (id: string) => /^\d+$/.test(id);
 
-const iso = (display: string): string => parseDT(display).toISOString();
-const fromIso = (value: string | null): string => (value ? fmtDT(new Date(value)) : '');
+/**
+ * Настенное время инцидента, без конвертации в UTC. Шаги хронологии и эскалаций
+ * приходят/уходят как "HH:MM" в локальном времени дежурного; started/detected/
+ * resolved обязаны жить в том же времени, иначе метрики, сравнивающие «настоящий»
+ * timestamp со временем шага, уезжают на смещение пояса браузера.
+ */
+const iso = (display: string): string => {
+  const [d, t] = display.split(' ');
+  const [dd, mm, yyyy] = d.split('.');
+  return `${yyyy}-${mm}-${dd} ${t || '00:00'}:00`;
+};
+
+/** Читает Y-M-D H:M прямо из ISO-строки бэкенда, игнорируя её смещение (+00:00). */
+const fromIso = (value: string | null): string => {
+  const m = value?.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
+  if (!m) return '';
+  const [, yyyy, mm, dd, hh, min] = m;
+  return `${dd}.${mm}.${yyyy} ${hh}:${min}`;
+};
 
 export function mapIncident(api: ApiIncident): FullIncident {
   return {
