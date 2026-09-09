@@ -1,15 +1,12 @@
 {
-  "name": "ims-incident-dashboard",
+  "name": "ims-admin",
   "private": true,
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently -n backend,frontend -c blue,green \"npm:dev:backend\" \"npm:dev:frontend\"",
-    "dev:frontend": "vite",
-    "dev:backend": "cd backend && php artisan serve",
+    "dev": "vite",
     "build": "tsc -b && vite build",
-    "preview": "vite preview",
-    "start": "npm run build && cd backend && php artisan serve"
+    "preview": "vite preview"
   },
   "dependencies": {
     "lucide-react": "^0.454.0",
@@ -22,8 +19,6 @@
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.3",
     "autoprefixer": "^10.4.20",
-    "concurrently": "^10.0.5",
-    "playwright": "^1.63.0",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.15",
     "typescript": "^5.6.3",

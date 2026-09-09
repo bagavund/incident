@@ -1,14 +1,15 @@
+# ЛОКАЛЬНАЯ разработка/демо — поднимает всё три сервиса разом.
+# НЕ для стендов и прода: там APP_ENV=production, секреты из хранилища,
+# внешняя БД, а backend и frontend деплоятся из своих репозиториев
+# (ims/backend/core и ims/frontend/admin) отдельными образами. См. DEPLOY.md.
 services:
-  app:
-    build: .
-    ports:
-      - "8000:80"
+  backend:
+    build: ./backend
     environment:
       APP_ENV: local
       APP_DEBUG: "true"
-      APP_URL: http://localhost:8000
-      # Fixed local-dev keys so tokens/sessions survive a container rebuild.
-      # Generate your own for anything non-local: `php artisan key:generate --show`.
+      APP_URL: http://localhost:8080
+      # Фиксированные dev-ключи, чтобы токены/сессии переживали пересборку.
       APP_KEY: base64:HyZmA9eUVEOidQlETvyr+iSPCEIUZiA5t9cg9IE5d2E=
       JWT_SECRET: f0dd75ac7345d96ab263d8567b0214875ac48a66f53a95ff6cee9d2b2d4489ed
       DB_CONNECTION: mysql
@@ -17,14 +18,23 @@ services:
       DB_DATABASE: ims
       DB_USERNAME: ims
       DB_PASSWORD: ims
-      # Same-origin now (Apache serves the SPA + API), so CORS is a non-issue,
-      # but keep it permissive for anyone pointing the dev Vite server here.
-      CORS_ALLOWED_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
-      # Local-dev only. On real deployments set this via secrets.
+      CACHE_STORE: database
+      # Local-dev only — заведомо слабый пароль. На проде обязателен и приходит
+      # из секретов; сидер падает, если он не задан при APP_ENV=production.
       ADMIN_PASSWORD: password
     depends_on:
       db:
         condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "8080:80"          # http://localhost:8080 — SPA + проксируемый /api
+    environment:
+      BACKEND_URL: http://backend:80
+    depends_on:
+      - backend
     restart: unless-stopped
 
   db:

@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Check, Clock, Pencil, Plus, ShieldAlert, Trash2, UserPlus, X } from 'lucide-react';
+import { Check, Clock, KeyRound, Pencil, Plus, ShieldAlert, Trash2, UserPlus, X } from 'lucide-react';
 import { ApiError } from '../lib/api';
 import { useStore, type LookupApi, type LookupKey, type NewUser } from '../store';
 import { PROBLEM_CATEGORY_LABELS, type ProblemCategory, type UserRole } from '../types';
 import { Button, Card, CardHeader, Field, Input, Select } from '../components/ui';
+import { PasswordModal } from '../components/PasswordModal';
 
 const SECTIONS: { key: LookupKey; title: string; subtitle: string }[] = [
   { key: 'services', title: 'Сервисы', subtitle: 'Доступны при создании инцидента' },
@@ -74,10 +75,11 @@ const EMPTY_NEW_USER: NewUser = {
  * Логин короткий (`vkomlev`), не email.
  */
 function UsersCard() {
-  const { users, addUser } = useStore();
+  const { users, addUser, resetUserPassword } = useStore();
   const [draft, setDraft] = useState<NewUser>(EMPTY_NEW_USER);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [resetFor, setResetFor] = useState<{ id: number; name: string } | null>(null);
 
   const submit = async () => {
     if (!draft.name.trim() || !draft.username.trim() || !draft.password) {
@@ -105,10 +107,17 @@ function UsersCard() {
       <CardHeader title="Пользователи" subtitle="Учётки заводит администратор — логин, а не email" />
       <div className="space-y-1 px-3 pb-1 pt-1">
         {users.map((u) => (
-          <div key={u.id} className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-[13px]">
+          <div key={u.id} className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] hover:bg-white/[0.02]">
             <span className="flex-1 text-gray-300">{u.name}</span>
             <span className="font-mono text-xs text-gray-500">{u.username}</span>
             <span className="text-xs text-gray-600">{u.role_label}</span>
+            <button
+              onClick={() => setResetFor({ id: u.id, name: u.name })}
+              title="Сбросить пароль"
+              className="text-gray-600 hover:text-gray-300"
+            >
+              <KeyRound size={13} />
+            </button>
           </div>
         ))}
         {users.length === 0 && <p className="px-2 py-2 text-xs text-gray-600">Список пуст</p>}
@@ -148,6 +157,15 @@ function UsersCard() {
         </Button>
         {error && <p className="text-xs text-crit">{error}</p>}
       </div>
+
+      {resetFor && (
+        <PasswordModal
+          title={`Сброс пароля: ${resetFor.name}`}
+          mode="admin"
+          onSubmit={({ next, confirm }) => resetUserPassword(resetFor.id, next, confirm)}
+          onClose={() => setResetFor(null)}
+        />
+      )}
     </Card>
   );
 }

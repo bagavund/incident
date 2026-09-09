@@ -63,6 +63,8 @@ export interface Store {
   users: UserAccount[];
   /** Заводит учётку (админ-only на бэке); бросает ApiError, если логин занят или прав не хватает. */
   addUser: (data: NewUser) => Promise<void>;
+  /** Админский сброс пароля пользователя (админ-only на бэке). */
+  resetUserPassword: (userId: number, password: string, passwordConfirmation: string) => Promise<void>;
 }
 
 const StoreContext = createContext<Store | null>(null);
@@ -216,6 +218,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setUsers((list) => [...list, res.data].sort((a, b) => a.name.localeCompare(b.name, 'ru')));
   }, []);
 
+  const resetUserPassword = useCallback(
+    async (userId: number, password: string, passwordConfirmation: string) => {
+      await apiPut(`/users/${userId}/password`, {
+        password,
+        password_confirmation: passwordConfirmation,
+      });
+    },
+    [],
+  );
+
   const updateSlaEscalationMinutes = useCallback(
     async (minutes: number) => {
       const res = await apiPut<{ data: { escalation_minutes: number } }>('/sla-setting', {
@@ -249,6 +261,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     users,
     addUser,
+    resetUserPassword,
   };
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

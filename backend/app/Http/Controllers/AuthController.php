@@ -44,6 +44,23 @@ class AuthController extends Controller
         return response()->json(['message' => 'Сессия завершена.']);
     }
 
+    /**
+     * Смена собственного пароля. Текущий токен отзывается, в ответе — новый,
+     * чтобы клиент остался в системе, а перехваченный старый токен умер.
+     */
+    public function changePassword(ChangePasswordRequest $request): JsonResponse
+    {
+        $user = $request->user();
+        $user->update(['password' => $request->string('password')]);
+
+        $payload = $this->jwt->decode($request->bearerToken() ?? '', allowExpired: true);
+        if (! empty($payload['jti']) && ! empty($payload['exp'])) {
+            $this->jwt->revoke($payload['jti'], (int) $payload['exp']);
+        }
+
+        return $this->tokenResponse($user);
+    }
+
     public function refresh(Request $request): JsonResponse
     {
         $token = $request->bearerToken() ?? '';

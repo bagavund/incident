@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, ExternalLink, Pencil, PhoneCall, Trash2 } from 'lucide-react';
 import { useAuth } from '../auth';
 import { apiGet } from '../lib/api';
+import { safeExternalUrl } from '../lib/url';
 import { useStore } from '../store';
 import { IMPACT_TARGET_LABELS, PROBLEM_CATEGORY_LABELS, type ImpactTarget, type TimelineKind } from '../types';
 import { Badge, Button, Card, CardHeader, cn, InfoHint, SlaBadge } from '../components/ui';
@@ -106,9 +107,9 @@ export function IncidentDetail({ id, onBack }: { id: string; onBack: () => void 
               </Button>
             </>
           )}
-          {incident.taskLink && (
+          {safeExternalUrl(incident.taskLink) && (
             <a
-              href={incident.taskLink}
+              href={safeExternalUrl(incident.taskLink)!}
               target="_blank"
               rel="noreferrer"
               className="inline-flex items-center gap-2 rounded-lg border border-white/[0.08] px-3.5 py-2 text-[13px] text-gray-300 transition-colors hover:bg-white/[0.04]"

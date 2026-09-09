@@ -17,6 +17,14 @@ return Application::configure(basePath: dirname(__DIR__))
         apiPrefix: 'api',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // За реверс-прокси/балансировщиком (прод: HTTPS терминируется там):
+        // доверяем заголовкам X-Forwarded-*, иначе Laravel считает соединение
+        // http и ломает абсолютные ссылки, а троттлинг ключуется по IP прокси.
+        // Доверяемые адреса при желании сузить через env TRUSTED_PROXIES.
+        $middleware->trustProxies(
+            at: env('TRUSTED_PROXIES') ? explode(',', env('TRUSTED_PROXIES')) : '*',
+        );
+
         $middleware->api(prepend: [ForceJsonResponse::class]);
 
         $middleware->alias([

@@ -1,33 +1,20 @@
 # syntax=docker/dockerfile:1
+# Контекст сборки — каталог backend/. Фронтенд собирается и деплоится отдельно
+# (repo ims/frontend/admin); этот образ — только API.
 
 # ─────────────────────────────────────────────────────────────
-# Stage 1 — build the React/Vite frontend into backend/public
-# ─────────────────────────────────────────────────────────────
-FROM node:20-alpine AS frontend
-WORKDIR /app
-
-COPY package.json package-lock.json ./
-RUN npm ci
-
-COPY tsconfig.json vite.config.ts tailwind.config.js postcss.config.js index.html ./
-COPY src ./src
-RUN npm run build
-# vite writes index.html + assets/ to /app/backend/public
-
-# ─────────────────────────────────────────────────────────────
-# Stage 2 — install PHP dependencies (no dev, optimized)
+# Stage 1 — PHP-зависимости (без dev, оптимизированный автолоадер)
 # ─────────────────────────────────────────────────────────────
 FROM composer:2 AS vendor
 WORKDIR /app
 
-COPY backend/ ./
-# Platform extensions are provided by the runtime image, not this build image.
+COPY . ./
 RUN composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist \
         --no-scripts --ignore-platform-reqs \
  && composer dump-autoload --no-dev --optimize --no-scripts
 
 # ─────────────────────────────────────────────────────────────
-# Stage 3 — runtime: PHP 8.4 + Apache serving Laravel
+# Stage 2 — runtime: PHP 8.4 + Apache
 # ─────────────────────────────────────────────────────────────
 FROM php:8.4-apache AS runtime
 
@@ -43,7 +30,6 @@ COPY docker/apache.conf /etc/apache2/sites-available/000-default.conf
 WORKDIR /var/www/html
 
 COPY --from=vendor /app ./
-COPY --from=frontend /app/backend/public/ ./public/
 
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint
 RUN chmod +x /usr/local/bin/entrypoint \

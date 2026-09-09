@@ -2,88 +2,73 @@
 
 Система управления IT-инцидентами: дашборд, реестр инцидентов и постмортемы.
 
-- **Фронтенд** — React + TypeScript + Tailwind + Recharts + Lucide (эта папка).
-- **Бэкенд** — Laravel 13 + MySQL 8 + JWT ([backend/](backend/), своя [README](backend/README.md)).
+Репозиторий разбит на два независимых проекта (см. [REPO.md](REPO.md) —
+целевые пути в GitLab и процедура разделения):
+
+| Каталог | Что | Целевой repo GitLab |
+|---|---|---|
+| [backend/](backend/) | Laravel 13 + MySQL 8 + JWT, только API. Своя [README](backend/README.md) | `domains/it/ims/backend/core` |
+| [frontend/](frontend/) | React + TS + Tailwind + Recharts, SPA-админка для сотрудников поддержки | `domains/it/ims/frontend/admin` |
 
 Интерфейс минималистичный в духе iOS / Notion: тёмная тема, приглушённые
-границы, зелёный акцент точечно, моноширинный JetBrains Mono для чисел и времени.
+границы, зелёный акцент точечно, моноширинный шрифт для чисел и времени.
 
 ## Запуск в Docker (одна команда)
 
-Нужен только Docker с Compose. Из корня проекта:
+Нужен только Docker с Compose. Из корня:
 
 ```bash
 docker compose up --build
 ```
 
-Собирается фронт (Vite), ставятся зависимости бэкенда, применяются миграции и
-сиды. Два контейнера: `app` (PHP 8.4 + Apache) и `db` (MySQL 8.4). Приложение
-и API на одном адресе: **http://localhost:8000**. База живёт в томе `ims-db` и
-переживает пересборку; выключить — `docker compose down`, снести базу —
-`docker compose down -v`.
+Три контейнера: `frontend` (nginx, отдаёт SPA и проксирует `/api`), `backend`
+(PHP 8.4 + Apache), `db` (MySQL 8.4). Приложение — **http://localhost:8080**.
+Миграции и сиды применяются автоматически. База в томе `ims-db`, переживает
+пересборку; снести — `docker compose down -v`.
 
-Сид создаёт одну учётку администратора `admin` (пароль — из `ADMIN_PASSWORD`,
-в `docker-compose.yml` по умолчанию `password`). Дежурных заводит админ.
+Сид создаёт учётку `admin` (пароль — `ADMIN_PASSWORD`, локально `password`).
 
 ## Запуск без Docker
 
-Один раз — установка зависимостей и база:
+**Бэкенд** (`backend/`):
 
 ```bash
 cd backend
 composer install && cp .env.example .env
-php artisan key:generate          # JWT_SECRET и ADMIN_PASSWORD впишите в .env вручную
+php artisan key:generate     # JWT_SECRET и ADMIN_PASSWORD впишите в .env
 php artisan migrate --seed
-cd ..
-npm install
+php artisan serve            # http://127.0.0.1:8000
 ```
 
-Дальше — каждый раз одной командой из корня проекта (поднимает и бэкенд
-на :8000, и фронтенд на :5173 сразу; фронт проксирует `/api` на :8000):
+**Фронтенд** (`frontend/`, в отдельном терминале):
 
 ```bash
-npm run dev
+cd frontend
+npm install
+npm run dev                  # http://localhost:5173, проксирует /api на :8000
 ```
 
-Поднять их по отдельности (например, в разных терминалах) по-прежнему можно:
-`npm run dev:backend` и `npm run dev:frontend`.
+Вход по логину `admin`, пароль — `ADMIN_PASSWORD` из `backend/.env`
+(вне прода, если не задан, сид напечатает сгенерированный).
 
-Вход по логину `admin`, пароль — значение `ADMIN_PASSWORD` из `backend/.env`
-(если не задан вне прода — сид напечатает сгенерированный пароль).
+## Деплой в прод
 
-> Все экраны работают на реальном API. Клиент — [src/lib/api.ts](src/lib/api.ts),
-> преобразование форматов — [src/adapters.ts](src/adapters.ts).
-
-## Экраны (переключение через сайдбар)
-
-1. **Дашборд** — 4 KPI-карточки, блок «Аналитика по времени» (время до
-   обнаружения / на диагностику) с подсказками, график инцидентов по дням,
-   тепловая карта (день недели × время), столбчатый график по категориям, топ
-   сервисов, полосы по типам. Период — выпадающий список 7/30/90/180/365 дней
-   или свой диапазон.
-2. **Инциденты** — таблица с поиском и фильтром по сервису. Клик по строке
-   открывает **карточку инцидента**: метрики, полная хронология, тайминги,
-   заглушка, причина, влияние, зона ответственности, ссылка на задачу.
-3. **Создание инцидента** — общая информация, правая панель (тип — радио
-   «на нашей стороне / внешняя», заглушка с временем установки/снятия, влияние,
-   зона ответственности). Хронология из 4 обязательных шагов
-   (обнаружено · диагностика · передано ответственным · решена), кнопка
-   «Добавить шаг» снизу вставляет промежуточный шаг. Причина — свободный текст,
-   плюс ссылка на задачу.
+См. [DEPLOY.md](DEPLOY.md) — два образа, реверс-прокс, переменные окружения.
 
 ## Структура фронтенда
 
 ```
-src/
-  components/ui.tsx   — Card, Button, Badge, SlaBadge, Input, Select,
-                        Checkbox, AutoTextarea, InfoHint, Delta
-  components/Sidebar.tsx
-  screens/            — Login, Dashboard, Incidents, IncidentDetail,
-                        CreateIncident, IncidentForm, Admin
-  router.tsx          — лёгкий роутер на History API
-  lib/api.ts          — типизированный клиент к бэкенду
-  adapters.ts         — API-формат ⇄ модель экранов
-  auth.tsx · store.tsx · theme.tsx — сессия, загруженные данные, тема
-  data.ts             — форматы дат, валидация хронологии
-  types.ts · App.tsx
+frontend/
+  src/
+    components/ui.tsx    — Card, Button, Badge, Input, Select, Checkbox, …
+    components/Sidebar.tsx, components/PasswordModal.tsx
+    screens/             — Login, Dashboard, Incidents, IncidentDetail,
+                           CreateIncident, IncidentForm, Admin
+    router.tsx           — лёгкий роутер на History API
+    lib/api.ts           — типизированный клиент к бэкенду
+    lib/url.ts           — safeExternalUrl (http/https-only)
+    adapters.ts          — API-формат ⇄ модель экранов
+    auth.tsx · store.tsx · theme.tsx — сессия, данные, тема
+    data.ts · types.ts · App.tsx
+  nginx.conf.template    — прод: раздача SPA + проксирование /api
 ```

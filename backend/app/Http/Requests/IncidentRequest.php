@@ -61,7 +61,9 @@ class IncidentRequest extends FormRequest
 
             'cause' => ['nullable', 'string'],
             'impact' => ['nullable', 'string', Rule::requiredIf($publishing)],
-            'task_link' => ['nullable', 'string', 'max:2048'],
+            // Только http/https — иначе поле утекает в href на фронте и даёт
+            // javascript:/data: (stored XSS).
+            'task_link' => ['nullable', 'string', 'max:2048', 'url:http,https'],
 
             // present пропускает [] («влияния не было»), но отклоняет null при публикации.
             'impact_targets' => [$publishing ? 'present' : 'nullable', 'array'],

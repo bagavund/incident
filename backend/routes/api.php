@@ -16,7 +16,9 @@ use Illuminate\Support\Facades\Route;
 | Public
 |--------------------------------------------------------------------------
 */
-Route::post('auth/login', [AuthController::class, 'login']);
+// throttle: защита от брутфорса пароля — 5 попыток в минуту на IP+логин.
+Route::post('auth/login', [AuthController::class, 'login'])
+    ->middleware('throttle:5,1');
 
 /*
 |--------------------------------------------------------------------------
@@ -26,7 +28,10 @@ Route::post('auth/login', [AuthController::class, 'login']);
 Route::middleware('auth.jwt')->group(function () {
     Route::get('auth/me', [AuthController::class, 'me']);
     Route::post('auth/logout', [AuthController::class, 'logout']);
-    Route::post('auth/refresh', [AuthController::class, 'refresh']);
+    Route::post('auth/refresh', [AuthController::class, 'refresh'])
+        ->middleware('throttle:10,1');
+    Route::post('auth/password', [AuthController::class, 'changePassword'])
+        ->middleware('throttle:5,1');
 
     Route::get('analytics/dashboard', [AnalyticsController::class, 'dashboard']);
 
@@ -56,6 +61,7 @@ Route::middleware('auth.jwt')->group(function () {
     // Управление системой — только администратор
     Route::middleware('role:admin')->group(function () {
         Route::post('users', [UserController::class, 'store']);
+        Route::match(['put', 'patch'], 'users/{user}/password', [UserController::class, 'resetPassword']);
 
         Route::match(['put', 'patch'], 'sla-setting', [SlaSettingController::class, 'update']);
 
