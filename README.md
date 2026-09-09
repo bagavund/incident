@@ -2,13 +2,13 @@
 
 Система управления IT-инцидентами: дашборд, реестр инцидентов и постмортемы.
 
-Репозиторий разбит на два независимых проекта (см. [REPO.md](REPO.md) —
-целевые пути в GitLab и процедура разделения):
+Один репозиторий, две самодостаточные части — свой Dockerfile у каждой,
+общаются по HTTP:
 
-| Каталог | Что | Целевой repo GitLab |
-|---|---|---|
-| [backend/](backend/) | Laravel 13 + MySQL 8 + JWT, только API. Своя [README](backend/README.md) | `domains/it/ims/backend/core` |
-| [frontend/](frontend/) | React + TS + Tailwind + Recharts, SPA-админка для сотрудников поддержки | `domains/it/ims/frontend/admin` |
+| Каталог | Что |
+|---|---|
+| [backend/](backend/) | Laravel 13 + MySQL 8 + JWT, только API. Своя [README](backend/README.md) |
+| [frontend/](frontend/) | React + TS + Tailwind + Recharts, SPA-админка для сотрудников поддержки; nginx раздаёт её и проксирует `/api` на бэкенд |
 
 Интерфейс минималистичный в духе iOS / Notion: тёмная тема, приглушённые
 границы, зелёный акцент точечно, моноширинный шрифт для чисел и времени.

@@ -1,11 +1,11 @@
 # Развёртывание IMS
 
-Два независимых сервиса, каждый — свой образ и свой CI:
+Один репозиторий, из него собираются **два образа** — деплоятся как два сервиса:
 
-| Сервис | Каталог / repo | Образ | Роль |
+| Сервис | Контекст сборки | Образ | Роль |
 |---|---|---|---|
-| backend | `backend/` → `domains/it/ims/backend/core` | PHP 8.4 + Apache | REST API, миграции, JWT |
-| frontend | `frontend/` → `domains/it/ims/frontend/admin` | nginx | раздаёт SPA, проксирует `/api` на backend |
+| backend | `backend/` | PHP 8.4 + Apache | REST API, миграции, JWT |
+| frontend | `frontend/` | nginx | раздаёт SPA, проксирует `/api` на backend |
 
 Домен: `ims.av.ru` (внутренний). БД: MySQL 8 (или MariaDB 10.6+).
 
@@ -119,12 +119,12 @@ docker run -d --name ims-frontend --network ims -p 8080:80 \
 ## Обновление версии
 
 Новый образ нужного сервиса → пересоздать контейнер. Миграции backend
-применяются на старте, схему не сбрасывают. Фронт и бэк деплоятся независимо —
-следи за совместимостью API при раздельных релизах.
+применяются на старте, схему не сбрасывают. Оба образа собираются из одного
+репозитория и в общем случае релизятся вместе.
 
 ---
 
-## Тесты (в CI backend)
+## Тесты (в CI)
 
 ```bash
 cd backend && composer install && php artisan test
@@ -136,10 +136,11 @@ cd backend && composer install && php artisan test
 CREATE DATABASE ims_testing CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
 
+Фронт: `cd frontend && npm ci && npx tsc --noEmit && npm run build`.
+
 ---
 
 ## Чего в репозитории пока нет
 
-- **CI/CD пайплайны** (`.gitlab-ci.yml` в каждом repo): сборка образа → тесты → пуш → деплой. Пишет девопс.
+- **CI/CD пайплайн** (`.gitlab-ci.yml`): сборка обоих образов → тесты → пуш в registry → деплой. Пишет девопс.
 - **Прод-манифесты** (k8s / helm / compose оркестратора). `docker-compose.yml` в корне — **только локальная разработка** (`APP_ENV=local`, слабые пароли, встроенная MySQL).
-- Разделение монорепо на два GitLab-репозитория — см. [REPO.md](REPO.md).
