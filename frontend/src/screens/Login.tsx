@@ -28,11 +28,11 @@ export function Login() {
     <div className="grid-bg flex min-h-screen items-center justify-center px-4 text-gray-200">
       <Card className="w-full max-w-sm p-6">
         <div className="mb-5 flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-neon/10 font-display text-sm font-bold text-neon">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-neon/[0.12] text-sm font-bold text-neon">
             IMS
           </div>
           <div className="leading-tight">
-            <p className="font-display text-sm font-medium text-gray-200">Incident Management System</p>
+            <p className="text-sm font-semibold text-gray-200">Incident Management System</p>
             <p className="text-[11px] text-gray-500">Вход в систему</p>
           </div>
         </div>

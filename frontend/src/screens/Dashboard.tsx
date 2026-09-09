@@ -39,14 +39,15 @@ interface DashboardPayload {
 
 const EMPTY_HEATMAP = Array.from({ length: 7 }, () => Array(24).fill(0));
 
-const AXIS = { fill: '#71717a', fontSize: 11, fontFamily: 'JetBrains Mono' };
-const GRID = 'rgba(255,255,255,0.05)';
-const PIE_COLORS = ['#00FF66', '#00B3FF', '#FF8A00', '#71717a'];
+const AXIS = { fill: '#8b909a', fontSize: 11, fontFamily: 'IBM Plex Sans' };
+const GRID = 'rgba(255,255,255,0.04)';
+const BAR_COLOR = '#3E8E6E';
+const PIE_COLORS = ['#3E8E6E', '#4A6DA7', '#C98A3C', '#7A828E'];
 
 function ChartTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-lg border border-white/10 bg-black/95 px-3 py-2 font-mono text-xs">
+    <div className="rounded-lg border border-white/10 bg-black/95 px-3 py-2 text-xs">
       {label != null && <p className="mb-1 text-gray-500">{label}</p>}
       {payload.map((p: any, i: number) => (
         <p key={i} className="text-gray-300">
@@ -124,9 +125,9 @@ export function Dashboard({
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="font-display text-xl font-semibold text-gray-50">Дашборд</h1>
-          <p className="mt-0.5 text-[13px] text-gray-500">
-            Общая картина по инцидентам · нажмите на график, чтобы увидеть сами инциденты
+          <h1 className="text-xl font-semibold text-gray-50">Дашборд</h1>
+          <p className="mt-1 text-sm text-gray-500">
+            Общая картина по инцидентам. Нажмите на любой график, чтобы открыть инциденты за этот срез.
           </p>
         </div>
         <PeriodPicker
@@ -160,7 +161,7 @@ export function Dashboard({
           >
             <p className="text-xs text-gray-500">{k.label}</p>
             <div className="mt-2 flex items-end gap-2">
-              <span className="font-mono text-2xl font-semibold tracking-tight text-gray-50">
+              <span className="text-2xl font-semibold tracking-tight tabular-nums text-gray-50">
                 {k.value}
               </span>
               <span className="pb-0.5">
@@ -180,7 +181,7 @@ export function Dashboard({
               {a.hint && <InfoHint text={a.hint} />}
             </p>
             <div className="mt-2 flex items-end gap-2">
-              <span className="font-mono text-2xl font-semibold tracking-tight text-gray-50">
+              <span className="text-2xl font-semibold tracking-tight tabular-nums text-gray-50">
                 {a.value}
               </span>
               <span className="pb-0.5">
@@ -204,7 +205,7 @@ export function Dashboard({
               <Bar
                 dataKey="count"
                 name="Инциденты"
-                fill="#00FF66"
+                fill={BAR_COLOR}
                 radius={[4, 4, 0, 0]}
                 maxBarSize={34}
                 cursor="pointer"
@@ -240,7 +241,7 @@ export function Dashboard({
                 <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
                 <Bar dataKey="value" name="Инциденты" radius={[4, 4, 0, 0]} maxBarSize={34} cursor="pointer">
                   {byZone.map((z) => (
-                    <Cell key={z.name} fill="#00FF66" onClick={() => onDrill({ zone: z.name })} />
+                    <Cell key={z.name} fill={BAR_COLOR} onClick={() => onDrill({ zone: z.name })} />
                   ))}
                 </Bar>
               </BarChart>
@@ -259,7 +260,7 @@ export function Dashboard({
                 >
                   <span className="text-gray-300">{s.name}</span>
                   <span className="flex items-center gap-3">
-                    <span className="font-mono text-gray-400">{s.count}</span>
+                    <span className="tabular-nums text-gray-400">{s.count}</span>
                     {s.delta !== 0 && <Delta value={s.delta} up={s.delta > 0} />}
                   </span>
                 </button>
@@ -282,8 +283,8 @@ export function Dashboard({
                 >
                   <div className="mb-1.5 flex justify-between text-xs">
                     <span className="text-gray-400">{t.name}</span>
-                    <span className="font-mono text-gray-500">
-                      {t.value} · {t.pct}%
+                    <span className="tabular-nums text-gray-500">
+                      {t.value} — {t.pct}%
                     </span>
                   </div>
                   <div className="h-1 overflow-hidden rounded-full bg-white/[0.06]">
@@ -298,7 +299,7 @@ export function Dashboard({
 
       {/* Дополнительная аналитика: эскалации, рецидивы, надёжность */}
       <div>
-        <h2 className="mb-3 font-display text-[13px] font-medium text-gray-300">Эскалации и надёжность</h2>
+        <h2 className="mb-3 text-sm font-semibold text-gray-300">Эскалации и надёжность</h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           <StatTile
             label="Затянутая эскалация"
@@ -321,7 +322,7 @@ export function Dashboard({
             hint="Доля попыток эскалации, когда дозвонились сразу, без повторных звонков."
           />
           <StatTile
-            label="War Room Activation"
+            label="Сбор телемоста"
             value={`${warRoomRate}%`}
             hint="Как часто по инциденту собирали телемост (war room)."
           />
@@ -380,7 +381,7 @@ export function Dashboard({
                     if (!active || !payload?.length) return null;
                     const d = payload[0].payload;
                     return (
-                      <div className="rounded-lg border border-white/10 bg-black/95 px-3 py-2 font-mono text-xs">
+                      <div className="rounded-lg border border-white/10 bg-black/95 px-3 py-2 text-xs">
                         <p className="mb-1 text-gray-500">{label}</p>
                         <p className="text-gray-300">
                           Ср. попыток: <span className="text-neon">{d.avgAttempts}</span>
@@ -393,7 +394,7 @@ export function Dashboard({
                   }}
                   cursor={{ fill: 'rgba(255,255,255,0.03)' }}
                 />
-                <Bar dataKey="avgAttempts" name="Ср. попыток до результата" fill="#00FF66" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                <Bar dataKey="avgAttempts" name="Ср. попыток до результата" fill={BAR_COLOR} radius={[4, 4, 0, 0]} maxBarSize={40} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -415,7 +416,7 @@ function StatTile({ label, value, hint }: { label: string; value: string; hint?:
         {label}
         {hint && <InfoHint text={hint} />}
       </p>
-      <p className="mt-2 font-mono text-2xl font-semibold tracking-tight text-gray-50">{value}</p>
+      <p className="mt-2 text-2xl font-semibold tracking-tight tabular-nums text-gray-50">{value}</p>
     </Card>
   );
 }
@@ -509,19 +510,19 @@ function Heatmap({
   const max = Math.max(1, ...data.flat());
   return (
     <Card>
-      <CardHeader title="Тепловая карта" subtitle="День недели × час обнаружения · клик по ячейке" />
+      <CardHeader title="Тепловая карта" subtitle="День недели и час обнаружения. Нажмите на ячейку, чтобы открыть инциденты." />
       <div className="p-4 pt-2">
         <div className="mb-1 grid grid-cols-[28px_repeat(24,minmax(0,1fr))] gap-1">
           <span />
           {HEATMAP_HOURS.map((h, c) => (
-            <span key={h} className="text-center font-mono text-[9px] text-gray-600">
+            <span key={h} className="text-center text-[9px] tabular-nums text-gray-600">
               {c % 3 === 0 ? h : ''}
             </span>
           ))}
         </div>
         {data.map((row, r) => (
           <div key={r} className="mb-1 grid grid-cols-[28px_repeat(24,minmax(0,1fr))] items-center gap-1">
-            <span className="font-mono text-[10px] text-gray-600">{HEATMAP_DAYS[r]}</span>
+            <span className="text-[10px] text-gray-600">{HEATMAP_DAYS[r]}</span>
             {row.map((v, c) => (
               <button
                 key={c}
@@ -530,7 +531,7 @@ function Heatmap({
                 className="aspect-square w-full rounded-[3px] transition-transform hover:scale-110"
                 style={{
                   backgroundColor:
-                    v === 0 ? 'rgba(255,255,255,0.04)' : `rgba(0,255,102,${0.12 + (v / max) * 0.75})`,
+                    v === 0 ? 'rgba(255,255,255,0.04)' : `rgba(62,142,110,${0.15 + (v / max) * 0.8})`,
                 }}
               />
             ))}
@@ -543,7 +544,7 @@ function Heatmap({
               key={i}
               className="h-2.5 w-2.5 rounded-[2px]"
               style={{
-                backgroundColor: i === 0 ? 'rgba(255,255,255,0.04)' : `rgba(0,255,102,${o})`,
+                backgroundColor: i === 0 ? 'rgba(255,255,255,0.04)' : `rgba(62,142,110,${o})`,
               }}
             />
           ))}

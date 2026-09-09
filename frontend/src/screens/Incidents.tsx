@@ -64,8 +64,8 @@ export function Incidents({
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="font-display text-xl font-semibold text-gray-50">Инциденты</h1>
-          <p className="mt-0.5 text-[13px] text-gray-500">Список всех инцидентов</p>
+          <h1 className="text-xl font-semibold text-gray-50">Инциденты</h1>
+          <p className="mt-1 text-sm text-gray-500">Список всех инцидентов</p>
         </div>
         <Button variant="primary" icon={<Plus size={16} />} onClick={() => onNavigate('create')}>
           Создать инцидент
@@ -136,9 +136,9 @@ export function Incidents({
           </div>
 
           {(f.weekday !== undefined || f.hourStart !== undefined) && (
-            <p className="font-mono text-[11px] text-gray-500">
+            <p className="text-xs text-gray-500">
               Фильтр из тепловой карты: {f.weekday !== undefined && HEATMAP_DAYS[f.weekday]}
-              {f.hourStart !== undefined && ` · ${String(f.hourStart).padStart(2, '0')}:00–${String(f.hourEnd).padStart(2, '0')}:00`}
+              {f.hourStart !== undefined && ` — ${String(f.hourStart).padStart(2, '0')}:00–${String(f.hourEnd).padStart(2, '0')}:00`}
             </p>
           )}
         </div>
@@ -146,7 +146,7 @@ export function Incidents({
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left font-mono text-[11px] uppercase tracking-wider text-gray-500">
+              <tr className="text-left text-xs font-medium text-gray-500">
                 <th className="px-5 py-3 font-medium">ID</th>
                 <th className="px-5 py-3 font-medium">Название</th>
                 <th className="px-5 py-3 font-medium">Сервис</th>
@@ -179,7 +179,7 @@ export function Incidents({
                     <Badge color="gray">{i.type}</Badge>
                   </td>
                   <td className="whitespace-nowrap px-5 py-3 text-gray-400">{i.onDuty?.name ?? '—'}</td>
-                  <td className="whitespace-nowrap px-5 py-3 font-mono text-xs text-gray-400">
+                  <td className="whitespace-nowrap px-5 py-3 text-xs tabular-nums text-gray-400">
                     {i.createdAt}
                   </td>
                   <td className="px-5 py-3">
@@ -204,7 +204,7 @@ export function Incidents({
           </table>
         </div>
 
-        <div className="px-5 py-3 font-mono text-xs text-gray-500">
+        <div className="px-5 py-3 text-xs text-gray-500">
           Показано {rows.length} из {incidents.length}
         </div>
       </Card>

@@ -14,19 +14,15 @@ body,
 
 body {
   margin: 0;
-  background-color: #09090b;
+  background-color: #17191d;
   color: #e5e7eb;
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: 'IBM Plex Sans', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
-/* subtle tech grid on the app background */
+/* app background — flat, no tech grid */
 .grid-bg {
-  background-color: #09090b;
-  background-image:
-    linear-gradient(rgba(255, 255, 255, 0.014) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.014) 1px, transparent 1px);
-  background-size: 56px 56px;
+  background-color: #17191d;
 }
 
 ::-webkit-scrollbar {
@@ -34,14 +30,14 @@ body {
   height: 10px;
 }
 ::-webkit-scrollbar-track {
-  background: #0a0a0a;
+  background: #17191d;
 }
 ::-webkit-scrollbar-thumb {
-  background: #1c1c1f;
+  background: #2c3037;
   border-radius: 6px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #2a2a2e;
+  background: #3a3f48;
 }
 
 input::placeholder,
@@ -73,9 +69,6 @@ select optgroup {
 
 [data-theme='light'] .grid-bg {
   background-color: #f5f5f7;
-  background-image:
-    linear-gradient(rgba(0, 0, 0, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 0, 0, 0.03) 1px, transparent 1px);
 }
 
 [data-theme='light'] ::-webkit-scrollbar-track {
@@ -149,7 +142,7 @@ select optgroup {
 /* legibility fixes for accent colors used as plain text on a light surface */
 [data-theme='light'] .text-neon,
 [data-theme='light'] .text-neon\/80 {
-  color: #00a352;
+  color: #1c8f4d;
 }
 [data-theme='light'] .text-med {
   color: #a16207;
@@ -219,7 +212,7 @@ select optgroup {
   color: #52525b;
 }
 [data-theme='light'] .hover\:text-neon\/80:hover {
-  color: #00b35d;
+  color: #23a15c;
 }
 [data-theme='light'] .focus\:bg-white\/\[0\.03\]:focus {
   background-color: rgba(0, 0, 0, 0.03);

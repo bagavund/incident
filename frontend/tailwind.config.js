@@ -4,31 +4,20 @@ export default {
   theme: {
     extend: {
       colors: {
-        bg: '#09090B',
-        card: '#111113',
-        line: 'rgba(0,255,102,0.14)',
-        neon: '#00FF66',
-        'neon-dim': '#0B9E4A',
-        crit: '#FF3B3B',
-        high: '#FF8A00',
-        med: '#FFD400',
-        low: '#00FF66',
+        bg: '#17191D',
+        card: '#1E2126',
+        line: 'rgba(255,255,255,0.08)',
+        neon: '#2FAF63',
+        'neon-dim': '#1C8F4D',
+        crit: '#E5484D',
+        high: '#F76808',
+        med: '#E2A336',
+        low: '#2FAF63',
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
-        display: ['"Space Grotesk"', 'Inter', 'sans-serif'],
-        mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
-      },
-      boxShadow: {
-        neon: '0 0 10px rgba(0,255,102,0.2)',
-        'neon-lg': '0 0 24px rgba(0,255,102,0.28)',
-      },
-      backgroundImage: {
-        grid:
-          'linear-gradient(rgba(0,255,102,0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(0,255,102,0.035) 1px, transparent 1px)',
-      },
-      backgroundSize: {
-        grid: '40px 40px',
+        sans: ['"IBM Plex Sans"', 'system-ui', 'sans-serif'],
+        display: ['"IBM Plex Sans"', 'system-ui', 'sans-serif'],
+        mono: ['"IBM Plex Mono"', 'ui-monospace', 'monospace'],
       },
     },
   },

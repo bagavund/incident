@@ -25,9 +25,9 @@ export function Sidebar({
   const { user, isAdmin } = useAuth();
 
   return (
-    <aside className="flex w-60 flex-none flex-col border-r border-neon/10 bg-black/80 backdrop-blur">
+    <aside className="flex w-60 flex-none flex-col border-r border-white/[0.06] bg-card">
       <div className="flex items-center gap-2.5 px-5 py-6">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-neon/10 font-display text-[13px] font-bold text-neon">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-neon/[0.12] text-[13px] font-bold text-neon">
           IMS
         </div>
         <div className="leading-tight">

@@ -32,7 +32,7 @@ export function CardHeader({
   return (
     <div className="flex items-start justify-between gap-4 px-5 pb-3 pt-4">
       <div>
-        <h3 className="font-display text-[13px] font-medium text-gray-200">{title}</h3>
+        <h3 className="text-sm font-semibold text-gray-200">{title}</h3>
         {subtitle && <p className="mt-0.5 text-xs text-gray-500">{subtitle}</p>}
       </div>
       {action}
@@ -65,7 +65,7 @@ export function Button({
   return (
     <button
       className={cn(
-        'inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-[13px] transition-colors duration-150 disabled:opacity-40',
+        'inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm transition-colors duration-150 disabled:opacity-40',
         variants[variant],
         className,
       )}
@@ -97,7 +97,7 @@ export function Badge({ children, color = 'gray', className }: BadgeProps) {
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 font-mono text-[11px] font-medium',
+        'inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-medium',
         BADGE_COLORS[color],
         className,
       )}
@@ -115,7 +115,7 @@ export function SlaBadge({ sla }: { sla: SlaState }) {
 /* Inputs                                                              */
 /* ------------------------------------------------------------------ */
 const fieldBase =
-  'w-full rounded-lg border border-white/[0.08] bg-white/[0.02] px-3 py-2 text-[13px] text-gray-200 outline-none transition-colors focus:border-neon/60 focus:bg-white/[0.03] placeholder:text-gray-600';
+  'w-full rounded-lg border border-white/[0.08] bg-white/[0.02] px-3 py-2 text-sm text-gray-200 outline-none transition-colors focus:border-neon/60 focus:bg-white/[0.03] placeholder:text-gray-600';
 
 export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
   ({ className, ...rest }, ref) => (
@@ -382,7 +382,7 @@ export function InfoHint({ text }: { text: string }) {
 /* ------------------------------------------------------------------ */
 export function Delta({ value, up }: { value: number; up: boolean }) {
   return (
-    <span className={cn('font-mono text-xs font-semibold', up ? 'text-neon' : 'text-crit')}>
+    <span className={cn('text-xs font-semibold tabular-nums', up ? 'text-neon' : 'text-crit')}>
       {up ? '+' : ''}
       {value}%
     </span>
