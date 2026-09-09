@@ -610,23 +610,26 @@ Backend покрыт feature-тестами: CRUD инцидента, права
 
 ### 10. Эксплуатация
 
-**Docker (одна команда).** Из корня: `docker compose up --build`. Многостадийная
-сборка (Node → Composer → `php:8.4-apache`): фронт собирается в `public/`,
-Composer ставится без dev, entrypoint прогоняет `migrate --seed`. Приложение и
-API — `http://localhost:8000`. SQLite в томе `ims-db` переживает пересборку;
+Репозиторий разделён на два самодостаточных проекта — `backend/` (Laravel,
+только API) и `frontend/` (React SPA + nginx). Целевые пути в GitLab и процедура
+разделения — `REPO.md`.
+
+**Docker (одна команда).** Из корня: `docker compose up --build`. Три сервиса:
+`frontend` (nginx: раздаёт SPA, проксирует `/api` на backend), `backend`
+(`php:8.4-apache`, entrypoint прогоняет `migrate` + сид на пустой схеме),
+`db` (MySQL 8.4, том `ims-db`). Приложение — `http://localhost:8080`;
 `docker compose down -v` сносит базу.
 
-**Без Docker.** `backend`: `composer install`, `.env` (+ `JWT_SECRET` вручную),
-`php artisan migrate --seed`. Корень: `npm install`. Дальше `npm run dev`
-поднимает бэкенд на `:8000` и Vite на `:5173` (Vite проксирует `/api/*`,
-CORS не нужен).
+**Без Docker.** `backend/`: `composer install`, `cp .env.example .env`,
+`php artisan key:generate`, `php artisan migrate --seed`, `php artisan serve`
+(`:8000`). `frontend/` в отдельном терминале: `npm install`, `npm run dev`
+(`:5173`, Vite проксирует `/api` на `:8000`, CORS не нужен).
 
-**Тестовые учётки** (пароль у всех `password`): `admin` — администратор;
-`ivanov` / `petrova` / `sidorov` / `kuznecova` — дежурные.
+**Учётка на свежей БД** — только `admin` (пароль из `ADMIN_PASSWORD`).
+Дежурных и справочники заводит администратор в работающей системе.
 
-**Продакшн.** Один процесс, одна ВМ. SQLite достаточно для текущего объёма;
-переход на MySQL/Postgres — правка `DB_CONNECTION` и прогон миграций, схема к
-драйверу не привязана.
+**Продакшн.** Два образа, деплоятся независимо; MySQL 8; HTTPS на реверс-прокси
+перед `frontend`. Полностью — `DEPLOY.md`.
 
 **Известные ограничения.** Мобильная вёрстка вне объёма (работа с рабочего
 места). Авторизация — временный JWT до SSO. Список инцидентов грузится целиком и

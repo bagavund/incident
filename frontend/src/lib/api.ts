@@ -1,5 +1,12 @@
 const TOKEN_KEY = 'ims.auth.token';
 
+/**
+ * По умолчанию API доступен по тому же origin через `/api` — в проде это
+ * проксирует nginx (см. frontend/nginx.conf.template), локально — vite proxy.
+ * `VITE_API_BASE_URL` нужен, только если фронт и API реально на разных хостах.
+ */
+const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? '/api').replace(/\/$/, '');
+
 export function getToken(): string | null {
   try {
     return localStorage.getItem(TOKEN_KEY);
@@ -49,7 +56,7 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
     ...(options.headers as Record<string, string>),
   };
 
-  const res = await fetch(`/api${path}`, { ...options, headers });
+  const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
 
   if (res.status === 204) return undefined as T;
 

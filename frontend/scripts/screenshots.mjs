@@ -1,14 +1,14 @@
-// Скриншоты интерфейса для SYSTEM_ANALYSIS.md.
-// Требует запущенного приложения на BASE (по умолчанию http://localhost:8000)
-// и установленного playwright: npm i -D playwright && npx playwright install chromium
+// Скриншоты интерфейса для SYSTEM_ANALYSIS.md (лежит в корне монорепо).
+// Требует запущенного приложения на BASE (по умолчанию dev-сервер vite)
+// и playwright: npm i -D playwright
 //
-//   node scripts/screenshots.mjs
+//   npm run screenshots            # из каталога frontend/
 //
 import { chromium } from 'playwright';
 import { mkdirSync } from 'node:fs';
 
-const BASE = process.env.BASE ?? 'http://localhost:8000';
-const OUT = 'docs/screenshots';
+const BASE = process.env.BASE ?? 'http://localhost:5173';
+const OUT = process.env.OUT ?? '../docs/screenshots';
 mkdirSync(OUT, { recursive: true });
 
 const shots = [

@@ -17,6 +17,9 @@
 /public/build
 /public/fonts-manifest.dev.json
 /public/hot
+# SPA собирается и деплоится отдельно (repo ims/frontend/admin) — здесь только API
+/public/assets
+/public/index.html
 /public/storage
 /storage/*.key
 /storage/pail

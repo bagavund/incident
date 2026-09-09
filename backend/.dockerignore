@@ -1,0 +1,34 @@
+# Контекст сборки — каталог backend/. Пути указаны относительно него.
+
+# VCS / editors
+.git
+.gitignore
+.claude
+.vscode
+.idea
+
+# PHP
+vendor
+node_modules
+
+# Tests & tooling — не нужны в runtime-образе
+tests
+phpunit.xml
+.editorconfig
+.gitattributes
+boost.json
+
+# Local env & data (пересоздаются внутри контейнера)
+.env
+.env.backup
+database/database.sqlite
+storage/logs/*.log
+.phpunit.result.cache
+.phpunit.cache
+
+# Compiled caches, собранные с dev-зависимостями — пересоздаются на старте
+bootstrap/cache/*.php
+
+# Docs
+*.md
+!README.md

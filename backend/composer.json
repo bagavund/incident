@@ -1,8 +1,8 @@
 {
     "$schema": "https://getcomposer.org/schema.json",
-    "name": "av/git-board-core",
+    "name": "av/ims-core",
     "type": "project",
-    "description": "git-board — Incident Management System API (Laravel).",
+    "description": "IMS — Incident Management System API (Laravel).",
     "license": "proprietary",
     "require": {
         "php": "^8.3",

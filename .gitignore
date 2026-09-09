@@ -13,7 +13,3 @@ dist
 .mcp.json
 backend/boost.json
 backend/.claude
-
-# vite build output copied into Laravel's public dir
-backend/public/assets
-backend/public/index.html
