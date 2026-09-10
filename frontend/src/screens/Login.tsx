@@ -1,13 +1,14 @@
 import { useState } from 'react';
-import { AlertCircle, LogIn } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 import { useAuth } from '../auth';
 import { ApiError } from '../lib/api';
-import { Button, Card, Field, Input } from '../components/ui';
+import { Button, Field, Input } from '../components/ui';
 
 export function Login() {
   const { login } = useAuth();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -25,17 +26,14 @@ export function Login() {
   };
 
   return (
-    <div className="grid-bg flex min-h-screen items-center justify-center px-4 text-gray-200">
-      <Card className="w-full max-w-sm p-6">
-        <div className="mb-5 flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-neon/[0.12] text-sm font-bold text-neon">
-            IMS
-          </div>
-          <div className="leading-tight">
-            <p className="text-sm font-semibold text-gray-200">Incident Management System</p>
-            <p className="text-[11px] text-gray-500">Вход в систему</p>
-          </div>
+    <div className="grid-bg flex min-h-screen items-center justify-center px-4">
+      <div className="w-full max-w-sm rounded-card border border-white/[0.06] border-t-2 border-t-[#63C634] bg-card p-8 shadow-pop">
+        <div className="flex items-center gap-2.5">
+          <span className="font-display text-xl font-bold tracking-wide text-neon">IMS</span>
+          <span className="text-xs text-gray-500">Incident Management System</span>
         </div>
+
+        <h1 className="mb-5 mt-6 text-2xl font-normal tracking-tight text-gray-50">Вход</h1>
 
         <form onSubmit={submit} className="space-y-4">
           <Field label="Логин" required>
@@ -48,13 +46,23 @@ export function Login() {
             />
           </Field>
           <Field label="Пароль" required>
-            <Input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              required
-            />
+            <div className="relative">
+              <Input
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                required
+                className="pr-16"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded px-1.5 py-1 text-xs font-medium text-gray-500 hover:text-gray-300"
+              >
+                {showPassword ? 'Скрыть' : 'Показать'}
+              </button>
+            </div>
           </Field>
 
           {error && (
@@ -64,15 +72,13 @@ export function Login() {
             </p>
           )}
 
-          <Button type="submit" variant="primary" icon={<LogIn size={14} />} className="w-full justify-center" disabled={loading}>
-            {loading ? 'Входим...' : 'Войти'}
+          <Button type="submit" variant="primary" className="w-full justify-center" disabled={loading}>
+            {loading ? 'Входим…' : 'Войти'}
           </Button>
         </form>
 
-        <p className="mt-4 text-center text-[11px] text-gray-600">
-          Учётку заводит администратор
-        </p>
-      </Card>
+        <p className="mt-4 text-center text-xs text-gray-600">Учётку заводит администратор</p>
+      </div>
     </div>
   );
 }

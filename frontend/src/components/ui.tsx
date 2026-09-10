@@ -14,7 +14,7 @@ export function cn(...parts: Array<string | false | null | undefined>): string {
 /* ------------------------------------------------------------------ */
 export function Card({ className, children, ...rest }: React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={cn('rounded-xl border border-white/[0.06] bg-card', className)} {...rest}>
+    <div className={cn('rounded-card border border-white/[0.06] bg-card', className)} {...rest}>
       {children}
     </div>
   );
@@ -58,14 +58,14 @@ export function Button({
   ...rest
 }: ButtonProps) {
   const variants: Record<ButtonVariant, string> = {
-    primary: 'bg-neon text-black font-medium hover:bg-[#22e878]',
+    primary: 'btn-accent font-medium',
     outline: 'border border-white/10 text-gray-200 hover:bg-white/[0.04] bg-transparent',
     ghost: 'border border-white/[0.08] text-gray-400 hover:text-gray-200 hover:bg-white/[0.03] bg-transparent',
   };
   return (
     <button
       className={cn(
-        'inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm transition-colors duration-150 disabled:opacity-40',
+        'inline-flex items-center gap-2 rounded-control px-3.5 py-2 text-sm transition-[background-color,border-color,color,filter] duration-150 disabled:opacity-40',
         variants[variant],
         className,
       )}
@@ -115,7 +115,7 @@ export function SlaBadge({ sla }: { sla: SlaState }) {
 /* Inputs                                                              */
 /* ------------------------------------------------------------------ */
 const fieldBase =
-  'w-full rounded-lg border border-white/[0.08] bg-white/[0.02] px-3 py-2 text-sm text-gray-200 outline-none transition-colors focus:border-neon/60 focus:bg-white/[0.03] placeholder:text-gray-600';
+  'w-full rounded-control border border-white/[0.08] bg-white/[0.02] px-3 py-2 text-sm text-gray-200 outline-none transition-colors focus:border-neon/60 focus:bg-white/[0.03] placeholder:text-gray-600';
 
 export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
   ({ className, ...rest }, ref) => (

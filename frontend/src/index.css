@@ -2,7 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ------------------------------------------------------------------ */
+/* База — светлая тема (дизайн-система Азбуки Вкуса).                    */
+/* Тёмная включается через [data-theme='dark'] и переопределяет цвета   */
+/* поверх тех же utility-классов.                                       */
+/* ------------------------------------------------------------------ */
 :root {
+  color-scheme: light;
+}
+:root[data-theme='dark'] {
   color-scheme: dark;
 }
 
@@ -14,15 +22,15 @@ body,
 
 body {
   margin: 0;
-  background-color: #17191d;
-  color: #e5e7eb;
-  font-family: 'IBM Plex Sans', system-ui, sans-serif;
+  background-color: #f8f9fa;
+  color: #232527;
+  font-family: 'Golos Text', system-ui, 'Segoe UI', Roboto, sans-serif;
+  font-synthesis-weight: none;
   -webkit-font-smoothing: antialiased;
 }
 
-/* app background — flat, no tech grid */
 .grid-bg {
-  background-color: #17191d;
+  background-color: #f8f9fa;
 }
 
 ::-webkit-scrollbar {
@@ -30,190 +38,262 @@ body {
   height: 10px;
 }
 ::-webkit-scrollbar-track {
-  background: #17191d;
+  background: #eceef0;
 }
 ::-webkit-scrollbar-thumb {
-  background: #2c3037;
+  background: #d5d9dd;
   border-radius: 6px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #3a3f48;
+  background: #c1c6cc;
 }
 
 input::placeholder,
 textarea::placeholder {
-  color: #4b5563;
+  color: #9aa0a6;
 }
 
-/* dark native dropdowns */
-select {
-  color-scheme: dark;
-}
 select option,
 select optgroup {
-  background-color: #141416;
-  color: #e5e7eb;
-}
-
-/* ------------------------------------------------------------------ */
-/* Светлая тема — переопределение палитры поверх тех же utility-классов */
-/* ------------------------------------------------------------------ */
-[data-theme='light'] {
-  color-scheme: light;
-}
-
-[data-theme='light'] body {
-  background-color: #f5f5f7;
-  color: #27272a;
-}
-
-[data-theme='light'] .grid-bg {
-  background-color: #f5f5f7;
-}
-
-[data-theme='light'] ::-webkit-scrollbar-track {
-  background: #ececef;
-}
-[data-theme='light'] ::-webkit-scrollbar-thumb {
-  background: #d4d4d8;
-}
-[data-theme='light'] ::-webkit-scrollbar-thumb:hover {
-  background: #b8b8bf;
-}
-
-[data-theme='light'] input::placeholder,
-[data-theme='light'] textarea::placeholder {
-  color: #a1a1aa;
-}
-
-[data-theme='light'] select {
-  color-scheme: light;
-}
-[data-theme='light'] select option,
-[data-theme='light'] select optgroup {
   background-color: #ffffff;
-  color: #27272a;
+  color: #232527;
 }
 
-/* card / surfaces */
-[data-theme='light'] .bg-card {
+:focus-visible {
+  outline: 2px solid #184936;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Основная кнопка — акцент Азбуки Вкуса, темами задаётся отдельно */
+.btn-accent {
+  background-color: #184936;
+  color: #ffffff;
+}
+.btn-accent:hover {
+  background-color: #123a2b;
+}
+:root[data-theme='dark'] .btn-accent {
+  background-color: #63c634;
+  color: #10261b;
+}
+:root[data-theme='dark'] .btn-accent:hover {
+  background-color: #74d64c;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+
+/* ================================================================== */
+/* ТЁМНАЯ ТЕМА                                                          */
+/* Значения в tailwind.config.js уже тёмные, а дефолтные text-gray-*    */
+/* Tailwind на тёмном фоне читаются — поэтому здесь только фон, скролл  */
+/* и нативные контролы.                                                 */
+/* ================================================================== */
+:root[data-theme='dark'] body {
+  background-color: #202224;
+  color: #f1f3f2;
+}
+:root[data-theme='dark'] .grid-bg {
+  background-color: #202224;
+}
+:root[data-theme='dark'] ::-webkit-scrollbar-track {
+  background: #202224;
+}
+:root[data-theme='dark'] ::-webkit-scrollbar-thumb {
+  background: #3a3f43;
+}
+:root[data-theme='dark'] ::-webkit-scrollbar-thumb:hover {
+  background: #4c5257;
+}
+:root[data-theme='dark'] input::placeholder,
+:root[data-theme='dark'] textarea::placeholder {
+  color: #71767b;
+}
+:root[data-theme='dark'] select option,
+:root[data-theme='dark'] select optgroup {
+  background-color: #2b2e30;
+  color: #f1f3f2;
+}
+:root[data-theme='dark'] :focus-visible {
+  outline-color: #63c634;
+}
+
+/* ================================================================== */
+/* СВЕТЛАЯ ТЕМА — переопределение палитры поверх «тёмных» utility-классов */
+/* Применяется ко всему, кроме явной тёмной темы (в т.ч. при отсутствии  */
+/* атрибута data-theme).                                                */
+/* ================================================================== */
+:root:not([data-theme='dark']) .bg-card {
   background-color: #ffffff;
 }
-[data-theme='light'] .bg-black,
-[data-theme='light'] .bg-black\/80 {
-  background-color: rgba(255, 255, 255, 0.85);
+:root:not([data-theme='dark']) .bg-\[\#141416\] {
+  background-color: #ffffff;
 }
-[data-theme='light'] .bg-black\/95 {
-  background-color: rgba(255, 255, 255, 0.97);
-}
-[data-theme='light'] .bg-\[\#141416\] {
+:root:not([data-theme='dark']) .bg-black\/80,
+:root:not([data-theme='dark']) .bg-black\/95 {
   background-color: #ffffff;
 }
 
-/* text tiers */
-[data-theme='light'] .text-gray-50 {
-  color: #09090b;
+/* Текстовые ярусы: Grey/90 → Grey/60 */
+:root:not([data-theme='dark']) .text-gray-50 {
+  color: #232527;
 }
-[data-theme='light'] .text-gray-100 {
-  color: #18181b;
+:root:not([data-theme='dark']) .text-gray-100 {
+  color: #2e3033;
 }
-[data-theme='light'] .text-gray-200 {
-  color: #27272a;
+:root:not([data-theme='dark']) .text-gray-200 {
+  color: #3a3d40;
 }
-[data-theme='light'] .text-gray-300 {
-  color: #3f3f46;
+:root:not([data-theme='dark']) .text-gray-300 {
+  color: #52565a;
 }
-[data-theme='light'] .text-gray-400 {
-  color: #52525b;
+:root:not([data-theme='dark']) .text-gray-400 {
+  color: #6b7075;
 }
-[data-theme='light'] .text-gray-500 {
-  color: #71717a;
+:root:not([data-theme='dark']) .text-gray-500 {
+  color: #7a7f85;
 }
-[data-theme='light'] .text-gray-600 {
-  color: #9a9aa2;
+:root:not([data-theme='dark']) .text-gray-600 {
+  color: #9aa0a6;
 }
-[data-theme='light'] .text-gray-700 {
-  color: #c2c2c8;
+:root:not([data-theme='dark']) .text-gray-700 {
+  color: #c1c6cc;
 }
-[data-theme='light'] .bg-gray-600 {
-  background-color: #b8b8bf;
-}
-
-/* legibility fixes for accent colors used as plain text on a light surface */
-[data-theme='light'] .text-neon,
-[data-theme='light'] .text-neon\/80 {
-  color: #1c8f4d;
-}
-[data-theme='light'] .text-med {
-  color: #a16207;
+:root:not([data-theme='dark']) .bg-gray-600 {
+  background-color: #c1c6cc;
 }
 
-/* borders: white-opacity overlays -> black-opacity overlays */
-[data-theme='light'] .border-white\/10,
-[data-theme='light'] .border-white\/20 {
-  border-color: rgba(0, 0, 0, 0.12);
+/* Акцент: на светлой — тёмно-зелёный (контраст 9.8:1), не яркий лайм */
+:root:not([data-theme='dark']) .text-neon,
+:root:not([data-theme='dark']) .text-neon\/80 {
+  color: #184936;
 }
-[data-theme='light'] .border-white\/5 {
-  border-color: rgba(0, 0, 0, 0.06);
+:root:not([data-theme='dark']) .hover\:text-neon\/80:hover {
+  color: #123a2b;
 }
-[data-theme='light'] .border-white\/\[0\.04\] {
-  border-color: rgba(0, 0, 0, 0.05);
+:root:not([data-theme='dark']) .bg-neon\/70,
+:root:not([data-theme='dark']) .bg-neon\/\[0\.7\] {
+  background-color: #2f7d57;
 }
-[data-theme='light'] .border-white\/\[0\.06\] {
-  border-color: rgba(0, 0, 0, 0.08);
+:root:not([data-theme='dark']) .bg-neon\/\[0\.12\],
+:root:not([data-theme='dark']) .bg-neon\/\[0\.08\],
+:root:not([data-theme='dark']) .bg-neon\/\[0\.06\] {
+  background-color: #def5c5;
 }
-[data-theme='light'] .border-white\/\[0\.08\] {
-  border-color: rgba(0, 0, 0, 0.1);
+:root:not([data-theme='dark']) .border-neon\/20,
+:root:not([data-theme='dark']) .border-neon\/30 {
+  border-color: rgba(24, 73, 54, 0.28);
 }
-
-/* backgrounds: subtle white-opacity overlay panels -> subtle black-opacity overlay panels */
-[data-theme='light'] .bg-white\/\[0\.015\] {
-  background-color: rgba(0, 0, 0, 0.015);
+:root:not([data-theme='dark']) .hover\:border-neon\/20:hover {
+  border-color: rgba(24, 73, 54, 0.35);
 }
-[data-theme='light'] .bg-white\/\[0\.02\] {
-  background-color: rgba(0, 0, 0, 0.02);
-}
-[data-theme='light'] .bg-white\/\[0\.03\] {
-  background-color: rgba(0, 0, 0, 0.03);
-}
-[data-theme='light'] .bg-white\/\[0\.04\] {
-  background-color: rgba(0, 0, 0, 0.04);
-}
-[data-theme='light'] .bg-white\/\[0\.05\] {
-  background-color: rgba(0, 0, 0, 0.05);
-}
-[data-theme='light'] .bg-white\/\[0\.06\] {
-  background-color: rgba(0, 0, 0, 0.06);
-}
-[data-theme='light'] .bg-white\/5 {
-  background-color: rgba(0, 0, 0, 0.06);
-}
-[data-theme='light'] .hover\:bg-white\/\[0\.02\]:hover {
-  background-color: rgba(0, 0, 0, 0.02);
-}
-[data-theme='light'] .hover\:bg-white\/\[0\.03\]:hover {
-  background-color: rgba(0, 0, 0, 0.03);
-}
-[data-theme='light'] .hover\:bg-white\/\[0\.04\]:hover {
-  background-color: rgba(0, 0, 0, 0.04);
+:root:not([data-theme='dark']) .focus\:border-neon\/60:focus {
+  border-color: #184936;
 }
 
-/* hover text states */
-[data-theme='light'] .hover\:text-gray-100:hover {
-  color: #18181b;
+/* Статусы на белом */
+:root:not([data-theme='dark']) .text-crit {
+  color: #ce3d3d;
 }
-[data-theme='light'] .hover\:text-gray-200:hover {
-  color: #27272a;
+:root:not([data-theme='dark']) .hover\:text-crit:hover {
+  color: #b02f2f;
 }
-[data-theme='light'] .hover\:text-gray-300:hover {
-  color: #3f3f46;
+:root:not([data-theme='dark']) .text-med {
+  color: #a97c1e;
 }
-[data-theme='light'] .hover\:text-gray-400:hover {
-  color: #52525b;
+:root:not([data-theme='dark']) .text-high {
+  color: #b26a1c;
 }
-[data-theme='light'] .hover\:text-neon\/80:hover {
-  color: #23a15c;
+:root:not([data-theme='dark']) .bg-crit\/\[0\.06\],
+:root:not([data-theme='dark']) .bg-crit\/\[0\.08\] {
+  background-color: #fcf3f3;
 }
-[data-theme='light'] .focus\:bg-white\/\[0\.03\]:focus {
-  background-color: rgba(0, 0, 0, 0.03);
+:root:not([data-theme='dark']) .border-crit\/20 {
+  border-color: rgba(206, 61, 61, 0.28);
+}
+:root:not([data-theme='dark']) .border-crit\/30 {
+  border-color: rgba(206, 61, 61, 0.4);
+}
+:root:not([data-theme='dark']) .hover\:border-crit\/60:hover {
+  border-color: rgba(206, 61, 61, 0.6);
+}
+:root:not([data-theme='dark']) .hover\:bg-crit\/\[0\.08\]:hover {
+  background-color: #f8e7e7;
+}
+:root:not([data-theme='dark']) .bg-med\/\[0\.06\] {
+  background-color: #fbf3e0;
+}
+:root:not([data-theme='dark']) .border-med\/20 {
+  border-color: rgba(169, 124, 30, 0.28);
+}
+
+/* Границы: белые overlay → серые Азбуки */
+:root:not([data-theme='dark']) .border-white\/10,
+:root:not([data-theme='dark']) .border-white\/20 {
+  border-color: #dadde3;
+}
+:root:not([data-theme='dark']) .border-white\/5,
+:root:not([data-theme='dark']) .border-white\/\[0\.04\] {
+  border-color: #eef0f2;
+}
+:root:not([data-theme='dark']) .border-white\/\[0\.06\] {
+  border-color: #e7e9ec;
+}
+:root:not([data-theme='dark']) .border-white\/\[0\.08\] {
+  border-color: #dadde3;
+}
+
+/* Подложки-панели: белые overlay → светло-серые */
+:root:not([data-theme='dark']) .bg-white\/\[0\.015\] {
+  background-color: #fcfcfd;
+}
+:root:not([data-theme='dark']) .bg-white\/\[0\.02\] {
+  background-color: #f8f9fa;
+}
+:root:not([data-theme='dark']) .bg-white\/\[0\.03\],
+:root:not([data-theme='dark']) .focus\:bg-white\/\[0\.03\]:focus {
+  background-color: #f4f5f6;
+}
+:root:not([data-theme='dark']) .bg-white\/\[0\.04\] {
+  background-color: #f1f2f4;
+}
+:root:not([data-theme='dark']) .bg-white\/\[0\.05\],
+:root:not([data-theme='dark']) .bg-white\/5 {
+  background-color: #eef0f2;
+}
+:root:not([data-theme='dark']) .bg-white\/\[0\.06\] {
+  background-color: #e7e9ec;
+}
+:root:not([data-theme='dark']) .hover\:bg-white\/\[0\.02\]:hover {
+  background-color: #f8f9fa;
+}
+:root:not([data-theme='dark']) .hover\:bg-white\/\[0\.03\]:hover {
+  background-color: #f4f5f6;
+}
+:root:not([data-theme='dark']) .hover\:bg-white\/\[0\.04\]:hover {
+  background-color: #f1f2f4;
+}
+
+/* Прочее */
+:root:not([data-theme='dark']) .ring-bg {
+  --tw-ring-color: #ffffff;
+}
+:root:not([data-theme='dark']) .hover\:text-gray-100:hover {
+  color: #2e3033;
+}
+:root:not([data-theme='dark']) .hover\:text-gray-200:hover {
+  color: #3a3d40;
+}
+:root:not([data-theme='dark']) .hover\:text-gray-300:hover {
+  color: #52565a;
+}
+:root:not([data-theme='dark']) .hover\:text-gray-400:hover {
+  color: #6b7075;
 }

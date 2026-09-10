@@ -27,9 +27,7 @@ export function Sidebar({
   return (
     <aside className="flex w-60 flex-none flex-col border-r border-white/[0.06] bg-card">
       <div className="flex items-center gap-2.5 px-5 py-6">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-neon/[0.12] text-[13px] font-bold text-neon">
-          IMS
-        </div>
+        <span className="font-display text-base font-bold tracking-wide text-neon">IMS</span>
         <div className="leading-tight">
           <p className="font-display text-[13px] font-medium text-gray-200">Incident</p>
           <p className="text-[11px] text-gray-500">Management System</p>
@@ -44,9 +42,9 @@ export function Sidebar({
               key={id}
               onClick={() => onNavigate(id)}
               className={cn(
-                'flex items-center gap-3 rounded-lg px-3 py-1.5 text-[13px] transition-colors',
+                'flex items-center gap-3 rounded-control px-3 py-2 text-[13px] font-medium transition-colors',
                 active
-                  ? 'bg-white/[0.06] text-gray-100'
+                  ? 'bg-neon/[0.08] text-neon'
                   : 'text-gray-500 hover:bg-white/[0.03] hover:text-gray-300',
               )}
             >

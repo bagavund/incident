@@ -39,10 +39,11 @@ interface DashboardPayload {
 
 const EMPTY_HEATMAP = Array.from({ length: 7 }, () => Array(24).fill(0));
 
-const AXIS = { fill: '#8b909a', fontSize: 11, fontFamily: 'IBM Plex Sans' };
-const GRID = 'rgba(255,255,255,0.04)';
-const BAR_COLOR = '#3E8E6E';
-const PIE_COLORS = ['#3E8E6E', '#4A6DA7', '#C98A3C', '#7A828E'];
+const AXIS = { fill: '#9AA0A6', fontSize: 11, fontFamily: 'Golos Text' };
+const GRID = 'rgba(120,127,133,0.18)';
+const BAR_COLOR = '#2F7D57';
+const PIE_COLORS = ['#2F7D57', '#54A0C2', '#DFB750', '#9AA0A6'];
+const HEAT_ACCENT = '47,125,87';
 
 function ChartTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
@@ -125,7 +126,7 @@ export function Dashboard({
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-gray-50">Дашборд</h1>
+          <h1 className="text-2xl font-normal tracking-tight text-gray-50">Дашборд</h1>
           <p className="mt-1 text-sm text-gray-500">
             Общая картина по инцидентам. Нажмите на любой график, чтобы открыть инциденты за этот срез.
           </p>
@@ -151,26 +152,30 @@ export function Dashboard({
         </div>
       ) : (
       <>
-      {/* KPI */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        {kpis.map((k) => (
-          <Card
+      {/* KPI — одна делёная полоса, а не набор карточек */}
+      <Card className="grid grid-cols-2 overflow-hidden sm:grid-cols-4">
+        {kpis.map((k, i) => (
+          <button
             key={k.key}
-            className="cursor-pointer p-4 transition-colors hover:border-neon/20"
             onClick={() => onDrill({ from: fmtInputDate(from), to: fmtInputDate(to) })}
+            className={cn(
+              'px-5 py-4 text-left transition-colors hover:bg-white/[0.03]',
+              i > 0 && 'border-l border-white/[0.06]',
+              i === 2 && 'border-l-0 sm:border-l',
+            )}
           >
             <p className="text-xs text-gray-500">{k.label}</p>
             <div className="mt-2 flex items-end gap-2">
-              <span className="text-2xl font-semibold tracking-tight tabular-nums text-gray-50">
+              <span className="text-[30px] font-normal leading-none tracking-tight tabular-nums text-gray-50">
                 {k.value}
               </span>
               <span className="pb-0.5">
                 <Delta value={k.delta} up={k.up} />
               </span>
             </div>
-          </Card>
+          </button>
         ))}
-      </div>
+      </Card>
 
       {/* Аналитика по времени */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -531,7 +536,7 @@ function Heatmap({
                 className="aspect-square w-full rounded-[3px] transition-transform hover:scale-110"
                 style={{
                   backgroundColor:
-                    v === 0 ? 'rgba(255,255,255,0.04)' : `rgba(62,142,110,${0.15 + (v / max) * 0.8})`,
+                    v === 0 ? 'rgba(120,127,133,0.12)' : `rgba(${HEAT_ACCENT},${0.15 + (v / max) * 0.8})`,
                 }}
               />
             ))}
@@ -544,7 +549,7 @@ function Heatmap({
               key={i}
               className="h-2.5 w-2.5 rounded-[2px]"
               style={{
-                backgroundColor: i === 0 ? 'rgba(255,255,255,0.04)' : `rgba(62,142,110,${o})`,
+                backgroundColor: i === 0 ? 'rgba(120,127,133,0.12)' : `rgba(${HEAT_ACCENT},${o})`,
               }}
             />
           ))}

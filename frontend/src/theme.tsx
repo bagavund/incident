@@ -12,7 +12,7 @@ interface ThemeContextValue {
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 function readInitialTheme(): Theme {
-  return window.localStorage.getItem(STORAGE_KEY) === 'light' ? 'light' : 'dark';
+  return window.localStorage.getItem(STORAGE_KEY) === 'dark' ? 'dark' : 'light';
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
