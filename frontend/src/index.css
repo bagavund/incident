@@ -77,6 +77,16 @@ select optgroup {
 .kpi-band > * + * {
   border-top: 1px solid var(--kpi-divider);
 }
+/* Скругляем крайние ячейки под карточку — вместо overflow:hidden на полосе,
+   чтобы всплывающие подсказки (i) не обрезались. */
+.kpi-band > :first-child {
+  border-start-start-radius: inherit;
+  border-start-end-radius: inherit;
+}
+.kpi-band > :last-child {
+  border-end-start-radius: inherit;
+  border-end-end-radius: inherit;
+}
 @media (min-width: 640px) {
   .kpi-band {
     grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr));
@@ -84,6 +94,16 @@ select optgroup {
   .kpi-band > * + * {
     border-top: 0;
     border-left: 1px solid var(--kpi-divider);
+  }
+  .kpi-band > :first-child {
+    border-radius: inherit;
+    border-start-end-radius: 0;
+    border-end-end-radius: 0;
+  }
+  .kpi-band > :last-child {
+    border-radius: inherit;
+    border-start-start-radius: 0;
+    border-end-start-radius: 0;
   }
 }
 

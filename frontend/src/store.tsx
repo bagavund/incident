@@ -36,7 +36,7 @@ export interface LookupApi {
 
 export type LookupKey = 'services' | 'zones' | 'incidentTypes' | 'criticalities';
 
-export interface Store {
+interface Store {
   incidents: FullIncident[];
   loading: boolean;
   error: string | null;

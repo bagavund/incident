@@ -22,7 +22,7 @@ export function parseDT(dt: string): Date {
 }
 
 const pad = (n: number) => String(n).padStart(2, '0');
-export const fmtDT = (x: Date) =>
+const fmtDT = (x: Date) =>
   `${pad(x.getDate())}.${pad(x.getMonth() + 1)}.${x.getFullYear()} ${pad(x.getHours())}:${pad(x.getMinutes())}`;
 
 const MONTHS_RU = [

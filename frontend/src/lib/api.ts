@@ -47,7 +47,7 @@ export class ApiError extends Error {
 }
 
 /** Единая точка входа во все запросы к Laravel API — прикладывает токен, парсит ошибки. */
-export async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
+async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = getToken();
   const headers: Record<string, string> = {
     Accept: 'application/json',

@@ -47,9 +47,10 @@ final class IncidentAuditor
                 continue;
             }
 
-            $old = $before[$field] ?? null;
-            if ((string) $old !== (string) $value) {
-                $changes[$field] = [$old, $value];
+            $old = self::normalize($before[$field] ?? null);
+            $new = self::normalize($value);
+            if ($old !== $new) {
+                $changes[$field] = [$old, $new];
             }
         }
 
@@ -64,6 +65,43 @@ final class IncidentAuditor
         }
 
         self::write($incident, $user, 'updated', $changes);
+    }
+
+    /**
+     * Prepare a raw attribute value for both diffing and storage.
+     *
+     * The snapshot taken before the write holds raw DB values, the state after it
+     * holds cast values, and the two encode the same data differently:
+     *  - JSON columns come back from MySQL with a space after each comma
+     *    ('["site", "app"]') but Laravel's encoder writes none ('["site","app"]');
+     *  - a boolean column reads back as 0/1 and casts to false/true.
+     * A plain string compare then reports a change on every save. Folding both
+     * sides to a canonical form removes the false positives; JSON is kept decoded
+     * so the journal stores real arrays.
+     */
+    private static function normalize(mixed $value): mixed
+    {
+        if (is_string($value)) {
+            $trimmed = ltrim($value);
+            if (isset($trimmed[0]) && ($trimmed[0] === '[' || $trimmed[0] === '{')) {
+                $decoded = json_decode($value, true);
+                if (json_last_error() === JSON_ERROR_NONE) {
+                    return $decoded;
+                }
+            }
+
+            return $value;
+        }
+
+        if (is_array($value) || $value === null) {
+            return $value;
+        }
+
+        if (is_bool($value)) {
+            return $value ? '1' : '0';
+        }
+
+        return (string) $value;
     }
 
     private static function write(Incident $incident, ?User $user, string $action, ?array $changes): void

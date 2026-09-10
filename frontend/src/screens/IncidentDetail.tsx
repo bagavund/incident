@@ -138,6 +138,14 @@ export function IncidentDetail({ id, onBack }: { id: string; onBack: () => void 
             <CardHeader title="Хронология" subtitle="Полный ход работы над инцидентом" />
             <div className="p-5 pt-2">
               <ol className="relative space-y-4 border-l border-neon/30 pl-6">
+                <li className="relative">
+                  <span className="absolute -left-[31px] top-1 h-2.5 w-2.5 rounded-full bg-gray-500 ring-4 ring-bg" />
+                  <div className="flex items-baseline gap-3">
+                    <span className="font-mono text-xs text-neon">{incident.startedAt.split(' ')[1] || '—'}</span>
+                    <span className="text-xs font-medium text-gray-400">Начало инцидента</span>
+                  </div>
+                  <p className="mt-1 text-[13px] text-gray-200">{fmtHumanDT(incident.startedAt)}</p>
+                </li>
                 {incident.timeline
                   .filter((s) => s.time || s.action)
                   .map((s) => (
@@ -209,12 +217,8 @@ export function IncidentDetail({ id, onBack }: { id: string; onBack: () => void 
         {/* right */}
         <div className="space-y-4">
           <Card>
-            <CardHeader title="Тайминги" />
-            <dl className="divide-y divide-white/[0.05] px-5 pb-2 pt-1 text-[13px]">
-              <Row k="Дежурный" v={incident.onDuty?.name || '—'} />
-              <Row k="Начало инцидента" v={fmtHumanDT(incident.startedAt) || '—'} />
-              <Row k="Обнаружен" v={fmtHumanDT(incident.detectedAt) || '—'} />
-            </dl>
+            <CardHeader title="Дежурный" />
+            <p className="px-5 pb-5 pt-1 text-[13px] text-gray-300">{incident.onDuty?.name || '—'}</p>
           </Card>
 
           <Card>
@@ -328,7 +332,7 @@ function AuditLog({ incidentId }: { incidentId: string }) {
                 {Object.entries(entry.changes).map(([field, [oldValue, newValue]]) => (
                   <li key={field}>
                     <span className="text-gray-400">{AUDIT_FIELD_LABELS[field] ?? field}:</span>{' '}
-                    {formatAuditValue(oldValue)} → {formatAuditValue(newValue)}
+                    {formatAuditValue(field, oldValue)} → {formatAuditValue(field, newValue)}
                   </li>
                 ))}
               </ul>
@@ -340,10 +344,37 @@ function AuditLog({ incidentId }: { incidentId: string }) {
   );
 }
 
-function formatAuditValue(value: unknown): string {
+/** Подписи для enum-значений, которые в журнале лежат сырыми (как в БД). */
+const AUDIT_VALUE_LABELS: Record<string, string> = {
+  met: 'SLA соблюдён',
+  breached: 'SLA нарушен',
+  draft: 'Черновик',
+  published: 'Опубликован',
+  true: 'да',
+  false: 'нет',
+};
+
+/** "2026-09-09 07:00:00" / ISO → "9 сентября 2026, 07:00". Возвращает null, если это не дата-время. */
+function humanizeAuditDateTime(value: string): string | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/.exec(value);
+  if (!m) return null;
+  const [, y, mo, d, hh, mm] = m;
+  return fmtHumanDT(`${d}.${mo}.${y} ${hh}:${mm}`);
+}
+
+function formatAuditValue(field: string, value: unknown): string {
   if (value === null || value === undefined || value === '') return '—';
-  if (Array.isArray(value)) return value.length ? value.join(', ') : '—';
-  return String(value);
+  if (Array.isArray(value)) {
+    if (value.length === 0) return '—';
+    if (field === 'impact_targets') {
+      return value.map((t) => IMPACT_TARGET_LABELS[t as ImpactTarget] ?? String(t)).join(', ');
+    }
+    return value.join(', ');
+  }
+  if (typeof value === 'string') {
+    return humanizeAuditDateTime(value) ?? AUDIT_VALUE_LABELS[value] ?? value;
+  }
+  return AUDIT_VALUE_LABELS[String(value)] ?? String(value);
 }
 
 function Metric({ label, value, hint }: { label: string; value: string | null; hint?: string }) {

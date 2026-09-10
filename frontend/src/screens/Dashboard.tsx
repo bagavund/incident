@@ -154,7 +154,7 @@ export function Dashboard({
       <>
       {/* KPI — одна делёная полоса, а не набор карточек */}
       <Card
-        className="kpi-band grid overflow-hidden"
+        className="kpi-band grid"
         style={{ ['--cols' as string]: Math.max(kpis.length, 1) }}
       >
         {kpis.map((k) => (
@@ -178,7 +178,7 @@ export function Dashboard({
 
       {/* Аналитика по времени — такой же делёной полосой */}
       <Card
-        className="kpi-band grid overflow-hidden"
+        className="kpi-band grid"
         style={{ ['--cols' as string]: Math.max(timeAnalytics.length, 1) }}
       >
         {timeAnalytics.map((a) => (

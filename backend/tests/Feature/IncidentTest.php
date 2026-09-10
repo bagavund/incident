@@ -13,6 +13,7 @@ use App\Models\Zone;
 use App\Services\JwtService;
 use App\Services\SlaEvaluator;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class IncidentTest extends TestCase
@@ -359,6 +360,42 @@ class IncidentTest extends TestCase
         $this->assertArrayNotHasKey('on_duty_user_id', $entries[0]['changes']);
     }
 
+    public function test_resending_unchanged_json_fields_does_not_record_a_phantom_change(): void
+    {
+        [$service, $type, $criticality] = $this->baseline();
+        Zone::factory()->create(['name' => 'Backend']);
+
+        $code = $this->actingAsAdmin()->postJson('/api/incidents', [
+            'title' => 'Инцидент с площадками',
+            'services' => [$service->id],
+            'type' => $type->name,
+            'criticality' => $criticality->name,
+            'on_duty_user_id' => User::factory()->onDuty()->create()->id,
+            'started_at' => '2026-06-01T10:00:00',
+            'zones' => ['Backend'],
+            'impact_targets' => ['site', 'app'],
+        ])->assertCreated()->json('data.code');
+
+        // Форма всегда шлёт полный payload — те же массивы приходят обратно без изменений.
+        $this->actingAsAdmin()
+            ->patchJson("/api/incidents/{$code}", [
+                'title' => 'Инцидент с площадками — правка',
+                'zones' => ['Backend'],
+                'impact_targets' => ['site', 'app'],
+            ])
+            ->assertOk();
+
+        $entries = $this->actingAsAdmin()
+            ->getJson("/api/incidents/{$code}/audit")
+            ->json('data');
+
+        $changes = collect($entries)->firstWhere('action', 'updated')['changes'];
+
+        $this->assertSame(['Инцидент с площадками', 'Инцидент с площадками — правка'], $changes['title']);
+        $this->assertArrayNotHasKey('impact_targets', $changes);
+        $this->assertArrayNotHasKey('zones', $changes);
+    }
+
     public function test_updating_services_records_the_id_diff(): void
     {
         $incident = Incident::factory()->create();
@@ -391,6 +428,52 @@ class IncidentTest extends TestCase
         // Инцидент создан фабрикой напрямую, в обход контроллера — записи о
         // создании нет; и раз ничего не поменялось, записи об обновлении тоже нет.
         $this->assertDatabaseCount('incident_audits', 0);
+    }
+
+    public function test_the_cleanup_migration_prunes_phantom_diffs_from_old_audit_rows(): void
+    {
+        $incident = Incident::factory()->create();
+
+        $realOnly = DB::table('incident_audits')->insertGetId([
+            'incident_id' => $incident->id,
+            'incident_code' => $incident->code,
+            'incident_title' => $incident->title,
+            'action' => 'updated',
+            'changes' => json_encode(['sla' => ['breached', 'met']]),
+            'created_at' => now(),
+        ]);
+        $mixed = DB::table('incident_audits')->insertGetId([
+            'incident_id' => $incident->id,
+            'incident_code' => $incident->code,
+            'incident_title' => $incident->title,
+            'action' => 'updated',
+            'changes' => json_encode([
+                'title' => ['Старое', 'Новое'],
+                'impact_targets' => ['["site", "app"]', '["site","app"]'],
+                'stub_installed' => [0, false],
+            ]),
+            'created_at' => now(),
+        ]);
+        $phantomOnly = DB::table('incident_audits')->insertGetId([
+            'incident_id' => $incident->id,
+            'incident_code' => $incident->code,
+            'incident_title' => $incident->title,
+            'action' => 'updated',
+            'changes' => json_encode(['zones' => ['["A"]', '["A"]']]),
+            'created_at' => now(),
+        ]);
+
+        (require database_path('migrations/2026_09_10_000001_prune_phantom_json_diffs_from_incident_audits.php'))->up();
+
+        $this->assertSame(
+            ['sla' => ['breached', 'met']],
+            json_decode(DB::table('incident_audits')->where('id', $realOnly)->value('changes'), true),
+        );
+        $this->assertSame(
+            ['title' => ['Старое', 'Новое']],
+            json_decode(DB::table('incident_audits')->where('id', $mixed)->value('changes'), true),
+        );
+        $this->assertDatabaseMissing('incident_audits', ['id' => $phantomOnly]);
     }
 
     public function test_deleting_an_incident_writes_a_deleted_audit_entry_that_outlives_the_row(): void
