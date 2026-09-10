@@ -101,6 +101,9 @@ export function PasswordModal({
             {fieldErrors.password?.map((m) => (
               <p key={m} className="mt-1 text-xs text-crit">{m}</p>
             ))}
+            <p className="mt-1 text-[11px] text-gray-500">
+              Минимум 12 символов, буквы разного регистра и хотя бы одна цифра.
+            </p>
           </Field>
           <Field label="Повтор нового пароля">
             <Input

@@ -42,7 +42,7 @@ class UserTest extends TestCase
     {
         $response = $this->actingAsAdmin()
             ->postJson('/api/users', [
-                'name' => 'Комлев Виктор',
+                'name' => 'Комлев Владислав',
                 'username' => 'vkomlev',
                 'password' => 'password123',
                 'password_confirmation' => 'password123',
@@ -54,7 +54,7 @@ class UserTest extends TestCase
             ->assertJsonPath('data.role', UserRole::OnDuty->value)
             ->assertJsonMissingPath('data.password');
 
-        $this->assertDatabaseHas('users', ['username' => 'vkomlev', 'name' => 'Комлев Виктор']);
+        $this->assertDatabaseHas('users', ['username' => 'vkomlev', 'name' => 'Комлев Владислав']);
     }
 
     public function test_username_must_be_unique(): void

@@ -112,7 +112,7 @@ export function IncidentDetail({ id, onBack }: { id: string; onBack: () => void 
             <a
               href={safeExternalUrl(incident.taskLink)!}
               target="_blank"
-              rel="noreferrer"
+              rel="noopener noreferrer"
               className="inline-flex items-center gap-2 rounded-lg border border-white/[0.08] px-3.5 py-2 text-[13px] text-gray-300 transition-colors hover:bg-white/[0.04]"
             >
               <ExternalLink size={14} />
