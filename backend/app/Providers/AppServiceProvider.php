@@ -20,8 +20,8 @@ class AppServiceProvider extends ServiceProvider
         // Политика паролей: на проде — 12+ символов, разный регистр, цифры и
         // проверка по базе утечек (k-anonymity HIBP). Вне прода не мешаем.
         Password::defaults(fn () => $this->app->isProduction()
-            ? Password::min(12)->mixedCase()->numbers()->uncompromised()
-            : Password::min(8));
+            ? Password::min(12)->max(72)->mixedCase()->numbers()->uncompromised()
+            : Password::min(8)->max(72));
 
         Auth::viaRequest('jwt', function (Request $request) {
             $token = $request->bearerToken();

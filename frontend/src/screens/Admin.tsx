@@ -125,13 +125,16 @@ function UsersCard() {
 
       <div className="grid grid-cols-1 gap-3 border-t border-white/[0.06] p-4 sm:grid-cols-2 lg:grid-cols-5">
         <Field label="Имя">
-          <Input value={draft.name} onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))} placeholder="Комлев Виктор" />
+          <Input value={draft.name} onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))} placeholder="Комлев Владислав" />
         </Field>
         <Field label="Логин">
           <Input value={draft.username} onChange={(e) => setDraft((d) => ({ ...d, username: e.target.value }))} placeholder="vkomlev" />
         </Field>
         <Field label="Пароль">
           <Input type="password" value={draft.password} onChange={(e) => setDraft((d) => ({ ...d, password: e.target.value }))} />
+          <p className="mt-1 text-[11px] text-gray-500">
+            Минимум 12 символов, буквы разного регистра и хотя бы одна цифра.
+          </p>
         </Field>
         <Field label="Повтор пароля">
           <Input
