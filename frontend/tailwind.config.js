@@ -4,20 +4,35 @@ export default {
   theme: {
     extend: {
       colors: {
-        bg: '#17191D',
-        card: '#1E2126',
-        line: 'rgba(255,255,255,0.08)',
-        neon: '#2FAF63',
-        'neon-dim': '#1C8F4D',
-        crit: '#E5484D',
-        high: '#F76808',
-        med: '#E2A336',
-        low: '#2FAF63',
+        // Значения — для ТЁМНОЙ темы; светлая переопределяет их в src/index.css
+        // поверх тех же utility-классов (см. блок [data-theme='light']).
+        bg: '#202224',
+        card: '#2B2E30',
+        line: 'rgba(255,255,255,0.09)',
+        // Акцент Азбуки Вкуса. На тёмной — яркий лайм проходит по контрасту;
+        // на светлой в index.css заменяется на тёмно-зелёный #184936.
+        neon: '#63C634',
+        'neon-dim': '#4FB026',
+        // Статусы (отдельно от акцента): красный / оранжевый / золото / зелёный
+        crit: '#E5726F',
+        high: '#E0A652',
+        med: '#DFB750',
+        low: '#63C634',
       },
       fontFamily: {
-        sans: ['"IBM Plex Sans"', 'system-ui', 'sans-serif'],
-        display: ['"IBM Plex Sans"', 'system-ui', 'sans-serif'],
-        mono: ['"IBM Plex Mono"', 'ui-monospace', 'monospace'],
+        sans: ['"Golos Text"', 'system-ui', '"Segoe UI"', 'Roboto', 'sans-serif'],
+        display: ['"Golos Text"', 'system-ui', '"Segoe UI"', 'Roboto', 'sans-serif'],
+        mono: ['"Golos Text"', 'system-ui', 'sans-serif'],
+      },
+      borderRadius: {
+        // Шкала по роли: поля/кнопки — control, карточки — card, модалки — panel
+        control: '6px',
+        card: '10px',
+        panel: '14px',
+      },
+      boxShadow: {
+        pop: '0 4px 20px rgba(34,35,37,.10)',
+        panel: '0 24px 48px rgba(34,35,37,.22)',
       },
     },
   },
