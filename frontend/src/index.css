@@ -65,6 +65,28 @@ select optgroup {
   border-radius: 4px;
 }
 
+/* KPI-полоса: на мобильном — колонкой, с sm — N равных столбцов.
+   Разделители — здесь, а не utility-классами, чтобы не мигали на переносе. */
+.kpi-band {
+  --kpi-divider: #e7e9ec;
+  grid-template-columns: 1fr;
+}
+:root[data-theme='dark'] .kpi-band {
+  --kpi-divider: rgba(255, 255, 255, 0.09);
+}
+.kpi-band > * + * {
+  border-top: 1px solid var(--kpi-divider);
+}
+@media (min-width: 640px) {
+  .kpi-band {
+    grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr));
+  }
+  .kpi-band > * + * {
+    border-top: 0;
+    border-left: 1px solid var(--kpi-divider);
+  }
+}
+
 /* Основная кнопка — акцент Азбуки Вкуса, темами задаётся отдельно */
 .btn-accent {
   background-color: #184936;

@@ -153,16 +153,15 @@ export function Dashboard({
       ) : (
       <>
       {/* KPI — одна делёная полоса, а не набор карточек */}
-      <Card className="grid grid-cols-2 overflow-hidden sm:grid-cols-4">
-        {kpis.map((k, i) => (
+      <Card
+        className="kpi-band grid overflow-hidden"
+        style={{ ['--cols' as string]: Math.max(kpis.length, 1) }}
+      >
+        {kpis.map((k) => (
           <button
             key={k.key}
             onClick={() => onDrill({ from: fmtInputDate(from), to: fmtInputDate(to) })}
-            className={cn(
-              'px-5 py-4 text-left transition-colors hover:bg-white/[0.03]',
-              i > 0 && 'border-l border-white/[0.06]',
-              i === 2 && 'border-l-0 sm:border-l',
-            )}
+            className="px-5 py-4 text-left transition-colors hover:bg-white/[0.03]"
           >
             <p className="text-xs text-gray-500">{k.label}</p>
             <div className="mt-2 flex items-end gap-2">
@@ -177,25 +176,28 @@ export function Dashboard({
         ))}
       </Card>
 
-      {/* Аналитика по времени */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      {/* Аналитика по времени — такой же делёной полосой */}
+      <Card
+        className="kpi-band grid overflow-hidden"
+        style={{ ['--cols' as string]: Math.max(timeAnalytics.length, 1) }}
+      >
         {timeAnalytics.map((a) => (
-          <Card key={a.key} className="p-4">
+          <div key={a.key} className="px-5 py-4">
             <p className="flex items-center gap-1.5 text-xs text-gray-500">
               {a.label}
               {a.hint && <InfoHint text={a.hint} />}
             </p>
             <div className="mt-2 flex items-end gap-2">
-              <span className="text-2xl font-semibold tracking-tight tabular-nums text-gray-50">
+              <span className="text-[30px] font-normal leading-none tracking-tight tabular-nums text-gray-50">
                 {a.value}
               </span>
               <span className="pb-0.5">
                 <Delta value={a.delta} up={a.up} />
               </span>
             </div>
-          </Card>
+          </div>
         ))}
-      </div>
+      </Card>
 
       {/* Инциденты по дням — компактная панель */}
       <Card className="flex flex-col">
