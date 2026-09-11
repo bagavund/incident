@@ -59,11 +59,11 @@ export function PasswordModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+      className="animate-scrim-in fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
       onMouseDown={onClose}
     >
       <div
-        className="w-full max-w-sm rounded-xl border border-white/10 bg-card shadow-2xl"
+        className="animate-panel-in w-full max-w-sm origin-center rounded-xl border border-white/10 bg-card shadow-2xl"
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-white/[0.06] px-5 py-3.5">

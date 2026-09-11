@@ -65,7 +65,7 @@ export function Button({
   return (
     <button
       className={cn(
-        'inline-flex items-center gap-2 rounded-control px-3.5 py-2 text-sm transition-[background-color,border-color,color,filter] duration-150 disabled:opacity-40',
+        'inline-flex items-center gap-2 rounded-control px-3.5 py-2 text-sm transition-[background-color,border-color,color,filter,transform] duration-150 active:scale-[0.97] disabled:opacity-40 disabled:active:scale-100',
         variants[variant],
         className,
       )}
@@ -222,7 +222,7 @@ export function Checkbox({
     <button
       type="button"
       onClick={() => onChange(!checked)}
-      className="flex w-full items-center gap-3 py-1.5 text-left text-[13px] text-gray-300 transition-colors hover:text-gray-100"
+      className="flex w-full items-center gap-3 py-1.5 text-left text-[13px] text-gray-300 transition-[color,transform] duration-150 hover:text-gray-100 active:scale-[0.98]"
     >
       <span
         className={cn(
@@ -332,7 +332,7 @@ export function MultiSelect({
       </button>
 
       {open && (
-        <div className="absolute left-0 right-0 top-full z-20 mt-1.5 rounded-lg border border-white/10 bg-card shadow-xl">
+        <div className="animate-panel-in absolute left-0 right-0 top-full z-20 mt-1.5 origin-top rounded-lg border border-white/10 bg-card shadow-xl">
           <div className="relative border-b border-white/[0.06] p-1.5">
             <Search size={13} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600" />
             <input

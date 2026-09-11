@@ -165,7 +165,7 @@ export function Dashboard({
           >
             <p className="text-xs text-gray-500">{k.label}</p>
             <div className="mt-2 flex items-end gap-2">
-              <span className="text-[30px] font-normal leading-none tracking-tight tabular-nums text-gray-50">
+              <span className="text-[30px] font-normal leading-none tracking-[-0.03em] tabular-nums text-gray-50">
                 {k.value}
               </span>
               <span className="pb-0.5">
@@ -188,7 +188,7 @@ export function Dashboard({
               {a.hint && <InfoHint text={a.hint} />}
             </p>
             <div className="mt-2 flex items-end gap-2">
-              <span className="text-[30px] font-normal leading-none tracking-tight tabular-nums text-gray-50">
+              <span className="text-[30px] font-normal leading-none tracking-[-0.03em] tabular-nums text-gray-50">
                 {a.value}
               </span>
               <span className="pb-0.5">
