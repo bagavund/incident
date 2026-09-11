@@ -334,7 +334,7 @@ class IncidentTest extends TestCase
 
         $incident = Incident::sole();
 
-        $this->actingAsOnDuty()
+        $this->actingAsAdmin()
             ->getJson("/api/incidents/{$incident->code}/audit")
             ->assertOk()
             ->assertJsonCount(1, 'data')
@@ -350,7 +350,7 @@ class IncidentTest extends TestCase
             ->patchJson("/api/incidents/{$incident->code}", ['title' => 'Новое название'])
             ->assertOk();
 
-        $entries = $this->actingAsOnDuty()
+        $entries = $this->actingAsAdmin()
             ->getJson("/api/incidents/{$incident->code}/audit")
             ->assertOk()
             ->assertJsonPath('data.0.action', 'updated')
@@ -406,7 +406,7 @@ class IncidentTest extends TestCase
             ->patchJson("/api/incidents/{$incident->code}", ['services' => [$newService->id]])
             ->assertOk();
 
-        $entries = $this->actingAsOnDuty()
+        $entries = $this->actingAsAdmin()
             ->getJson("/api/incidents/{$incident->code}/audit")
             ->json('data');
 
@@ -554,6 +554,34 @@ class IncidentTest extends TestCase
             ->assertJsonPath('data.metrics.escalation.total_calls', 3)
             ->assertJsonPath('data.metrics.escalation.responsible_span.minutes', 14)
             ->assertJsonPath('data.metrics.escalation.approval_span.minutes', null);
+    }
+
+    public function test_audit_log_is_visible_only_to_admin(): void
+    {
+        $incident = Incident::factory()->create();
+
+        $this->actingAsOnDuty()
+            ->getJson("/api/incidents/{$incident->code}/audit")
+            ->assertForbidden();
+    }
+
+    public function test_pdf_report_is_downloadable_for_a_published_incident(): void
+    {
+        $incident = Incident::factory()->withTimeline()->create();
+
+        $this->actingAsOnDuty()
+            ->get("/api/incidents/{$incident->code}/pdf")
+            ->assertOk()
+            ->assertHeader('Content-Type', 'application/pdf');
+    }
+
+    public function test_pdf_report_is_not_available_for_a_draft_incident(): void
+    {
+        $incident = Incident::factory()->create(['status' => 'draft']);
+
+        $this->actingAsOnDuty()
+            ->get("/api/incidents/{$incident->code}/pdf")
+            ->assertNotFound();
     }
 
     /** @return array{0:Service,1:IncidentType,2:Criticality} */

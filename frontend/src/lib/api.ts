@@ -74,6 +74,30 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
   return body as T;
 }
 
+/**
+ * Скачивание бинарного файла (PDF и т.п.) — обычная ссылка не пройдёт JWT
+ * в заголовке, поэтому грузим blob сами и сохраняем через временный <a>.
+ */
+export async function apiDownload(path: string, filename: string): Promise<void> {
+  const token = getToken();
+  const res = await fetch(`${API_BASE}${path}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+
+  if (!res.ok) {
+    if (res.status === 401) onUnauthorized?.();
+    throw new ApiError(res.status, `Не удалось скачать файл (${res.status})`);
+  }
+
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export const apiGet = <T>(path: string) => apiFetch<T>(path);
 export const apiPost = <T>(path: string, data?: unknown) =>
   apiFetch<T>(path, { method: 'POST', body: data !== undefined ? JSON.stringify(data) : undefined });

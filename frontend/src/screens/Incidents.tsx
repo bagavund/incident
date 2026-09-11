@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ChevronRight, Plus, RotateCcw, Search } from 'lucide-react';
 import { HEATMAP_DAYS, parseDT } from '../data';
+import { useAuth } from '../auth';
 import { useStore } from '../store';
 import type { FullIncident, IncidentFilters, Screen, SlaState } from '../types';
 import { Badge, Button, Card, cn, Input, Select, SlaBadge } from '../components/ui';
@@ -21,6 +22,7 @@ export function Incidents({
   onOpen: (id: string) => void;
 }) {
   const { services, incidentTypes, zones: zoneOptions } = useStore();
+  const { isViewer } = useAuth();
   const [f, setF] = useState<IncidentFilters>(() => ({ ...EMPTY, ...initialFilter }));
   const set = (patch: Partial<IncidentFilters>) => setF((s) => ({ ...s, ...patch }));
 
@@ -67,9 +69,11 @@ export function Incidents({
           <h1 className="text-xl font-semibold text-gray-50">Инциденты</h1>
           <p className="mt-1 text-sm text-gray-500">Список всех инцидентов</p>
         </div>
-        <Button variant="primary" icon={<Plus size={16} />} onClick={() => onNavigate('create')}>
-          Создать инцидент
-        </Button>
+        {!isViewer && (
+          <Button variant="primary" icon={<Plus size={16} />} onClick={() => onNavigate('create')}>
+            Создать инцидент
+          </Button>
+        )}
       </div>
 
       <Card>

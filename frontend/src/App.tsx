@@ -53,12 +53,15 @@ function ScreenFallback() {
 
 function Shell() {
   const { incidents, loading, error } = useStore();
-  const { logout, isAdmin } = useAuth();
+  const { logout, isAdmin, isViewer } = useAuth();
   const path = usePath();
   const parsed = parsePath(path);
-  // Администрирование доступно только админу — бэкенд всё равно ответит 403,
-  // поэтому не показываем экран и не даём на него уйти по прямой ссылке.
-  const screen = !isAdmin && parsed.screen === 'admin' ? 'dashboard' : parsed.screen;
+  // Администрирование доступно только админу, создание — не наблюдателю;
+  // бэкенд всё равно ответит 403, но экран и прямую ссылку тоже не даём.
+  const screen =
+    (!isAdmin && parsed.screen === 'admin') || (isViewer && parsed.screen === 'create')
+      ? 'dashboard'
+      : parsed.screen;
   const openId = parsed.openId;
   const [pendingFilter, setPendingFilter] = useState<Partial<IncidentFilters> | null>(null);
 

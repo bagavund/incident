@@ -49,6 +49,7 @@ export interface ApiIncident {
   criticality: string | null;
   status: EnumPayload;
   sla: EnumPayload;
+  author: { id: number; name: string } | null;
   on_duty: { id: number; name: string } | null;
   started_at: string | null;
   detected_at: string | null;
@@ -133,6 +134,7 @@ export function mapIncident(api: ApiIncident): FullIncident {
     type: api.type ?? '',
     criticality: api.criticality ?? '',
     sla: (api.sla.label as FullIncident['sla']) ?? 'Соблюден',
+    createdBy: api.author ? { id: api.author.id, name: api.author.name } : null,
     onDuty: api.on_duty ? { id: api.on_duty.id, name: api.on_duty.name } : null,
     createdAt: fromIso(api.created_at) || fromIso(api.detected_at),
     startedAt: fromIso(api.started_at),

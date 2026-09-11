@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, ExternalLink, Pencil, PhoneCall, Trash2 } from 'lucide-react';
+import { ArrowLeft, ExternalLink, FileDown, Pencil, PhoneCall, Trash2 } from 'lucide-react';
 import { useAuth } from '../auth';
 import { fmtHumanDT } from '../data';
-import { apiGet } from '../lib/api';
+import { apiDownload, apiGet } from '../lib/api';
 import { safeExternalUrl } from '../lib/url';
 import { useStore } from '../store';
 import { IMPACT_TARGET_LABELS, PROBLEM_CATEGORY_LABELS, type ImpactTarget, type TimelineKind } from '../types';
@@ -26,7 +26,7 @@ const ESCALATION_RESULT_COLOR: Record<string, 'neon' | 'red' | 'blue'> = {
 
 export function IncidentDetail({ id, onBack }: { id: string; onBack: () => void }) {
   const { getById, removeIncident, lookups } = useStore();
-  const { canEditIncident } = useAuth();
+  const { canEditIncident, isAdmin } = useAuth();
   const [editing, setEditing] = useState(false);
   const incident = useMemo(() => getById(id), [getById, id]);
   const metrics = incident?.metrics ?? null;
@@ -94,6 +94,18 @@ export function IncidentDetail({ id, onBack }: { id: string; onBack: () => void 
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {incident.status === 'published' && (
+            <Button
+              icon={<FileDown size={14} />}
+              onClick={() =>
+                apiDownload(`/incidents/${incident.id}/pdf`, `${incident.id}.pdf`).catch(() =>
+                  window.alert('Не удалось сформировать PDF. Проверьте соединение с сервером.'),
+                )
+              }
+            >
+              Скачать PDF
+            </Button>
+          )}
           {canEditIncident(incident) && (
             <>
               <Button icon={<Pencil size={14} />} onClick={() => setEditing(true)}>
@@ -245,7 +257,7 @@ export function IncidentDetail({ id, onBack }: { id: string; onBack: () => void 
             </div>
           </Card>
 
-          <AuditLog incidentId={incident.id} />
+          {isAdmin && <AuditLog incidentId={incident.id} />}
         </div>
       </div>
     </div>

@@ -20,12 +20,12 @@ class IncidentRequest extends FormRequest
             return false;
         }
 
-        // Создать инцидент может любой авторизованный (админ или дежурный);
-        // редактировать — только через IncidentPolicy (админ, либо дежурный,
-        // вписанный именно в этот инцидент).
+        // Создать инцидент может любой, кроме viewer; редактировать — только
+        // через IncidentPolicy (админ, автор записи, либо дежурный, вписанный
+        // именно в этот инцидент).
         $incident = $this->route('incident');
 
-        return $incident instanceof Incident ? $user->can('update', $incident) : true;
+        return $incident instanceof Incident ? $user->can('update', $incident) : $user->can('create', Incident::class);
     }
 
     public function rules(): array

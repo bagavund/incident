@@ -49,17 +49,19 @@ Route::middleware('auth.jwt')->group(function () {
     // Read
     Route::get('incidents', [IncidentController::class, 'index']);
     Route::get('incidents/{incident}', [IncidentController::class, 'show']);
-    Route::get('incidents/{incident}/audit', [IncidentController::class, 'audit']);
+    Route::get('incidents/{incident}/pdf', [IncidentController::class, 'pdf']);
 
-    // Создать инцидент может любой авторизованный (админ или дежурный);
-    // редактирование/удаление разбирает IncidentPolicy внутри контроллера
-    // (админ — любой инцидент, дежурный — только тот, где сам вписан).
+    // Создать инцидент может любой, кроме viewer; редактирование/удаление
+    // разбирает IncidentPolicy внутри контроллера/IncidentRequest (админ —
+    // любой инцидент, автор записи или вписанный дежурный — свой).
     Route::post('incidents', [IncidentController::class, 'store']);
     Route::match(['put', 'patch'], 'incidents/{incident}', [IncidentController::class, 'update']);
     Route::delete('incidents/{incident}', [IncidentController::class, 'destroy']);
 
     // Управление системой — только администратор
     Route::middleware('role:admin')->group(function () {
+        Route::get('incidents/{incident}/audit', [IncidentController::class, 'audit']);
+
         Route::post('users', [UserController::class, 'store']);
         Route::match(['put', 'patch'], 'users/{user}/password', [UserController::class, 'resetPassword']);
 

@@ -59,6 +59,7 @@ export function Admin() {
 const ROLE_OPTIONS: { value: UserRole; label: string }[] = [
   { value: 'on_duty', label: 'Дежурный' },
   { value: 'admin', label: 'Администратор' },
+  { value: 'viewer', label: 'Наблюдатель' },
 ];
 
 const EMPTY_NEW_USER: NewUser = {

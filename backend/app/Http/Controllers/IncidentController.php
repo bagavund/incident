@@ -2,19 +2,23 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\IncidentStatus;
 use App\Http\Requests\IncidentRequest;
 use App\Http\Resources\IncidentAuditResource;
 use App\Http\Resources\IncidentDetailResource;
 use App\Models\Incident;
+use App\Services\IncidentMetrics;
 use App\Services\SlaEvaluator;
 use App\Support\EscalationSync;
 use App\Support\IncidentAuditor;
 use App\Support\TimelineSync;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
+use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 
 class IncidentController extends Controller
 {
@@ -128,6 +132,21 @@ class IncidentController extends Controller
     public function audit(Incident $incident): AnonymousResourceCollection
     {
         return IncidentAuditResource::collection($incident->audits()->with('user')->get());
+    }
+
+    /** Печатный отчёт доступен только для опубликованных инцидентов — черновик ещё не прошёл постмортем. */
+    public function pdf(Incident $incident): SymfonyResponse
+    {
+        abort_unless($incident->status === IncidentStatus::Published, 404);
+
+        $incident->load(['services', 'onDuty', 'timelineSteps', 'escalationAttempts']);
+
+        return Pdf::loadView('incidents.report', [
+            'incident' => $incident,
+            'metrics' => app(IncidentMetrics::class)->for($incident),
+            'generatedAt' => now()->format('d.m.Y H:i'),
+            'fmt' => fn ($dt) => $dt?->format('d.m.Y H:i') ?? '—',
+        ])->download("{$incident->code}.pdf");
     }
 
     public function destroy(Request $request, Incident $incident): Response

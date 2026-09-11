@@ -150,6 +150,8 @@ export interface FullIncident {
   /** Проставляет дежурный вручную — критичность самого инцидента, не сервиса. */
   criticality: IncidentCriticality;
   sla: SlaState;
+  /** Кто завёл запись — им (наравне с дежурным и админом) можно её править. */
+  createdBy: { id: number; name: string } | null;
   /** Дежурный, вписанный в инцидент — реальный аккаунт, а не свободный текст. */
   onDuty: { id: number; name: string } | null;
   createdAt: string;
@@ -175,12 +177,15 @@ export interface FullIncident {
  * присваивает сервер, тайминги он же считает — клиент их не выдумывает.
  * Дежурного форма выбирает по id из списка пользователей, а не вводит текстом.
  */
-export type IncidentDraft = Omit<FullIncident, 'id' | 'sla' | 'createdAt' | 'metrics' | 'onDuty'> & {
+export type IncidentDraft = Omit<
+  FullIncident,
+  'id' | 'sla' | 'createdAt' | 'metrics' | 'createdBy' | 'onDuty'
+> & {
   onDutyUserId: number | null;
 };
 
-/** Роль учётной записи: полный доступ или дежурный, привязанный к своим инцидентам. */
-export type UserRole = 'admin' | 'on_duty';
+/** Роль учётной записи: полный доступ, дежурный по своим инцидентам, или только просмотр. */
+export type UserRole = 'admin' | 'on_duty' | 'viewer';
 
 /** Строка списка пользователей — выбор дежурного в форме, управление учётками в админке. */
 export interface UserAccount {

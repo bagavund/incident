@@ -25,8 +25,13 @@ interface Auth {
   restoring: boolean;
   /** Полный доступ: правит любой инцидент, справочники, SLA, заводит пользователей. */
   isAdmin: boolean;
-  /** Инцидент редактирует админ или дежурный, вписанный именно в него. */
-  canEditIncident: (incident: { onDuty: { id: number } | null }) => boolean;
+  /** Только просмотр: инциденты и аналитика, без создания/редактирования/удаления. */
+  isViewer: boolean;
+  /** Инцидент редактирует админ, автор записи, либо дежурный, вписанный именно в него. */
+  canEditIncident: (incident: {
+    createdBy: { id: number } | null;
+    onDuty: { id: number } | null;
+  }) => boolean;
   login: (username: string, password: string) => Promise<void>;
   /** Смена своего пароля: сервер отдаёт новый токен (старый отзывает), обновляем сессию. */
   changePassword: (current: string, next: string, confirm: string) => Promise<void>;
@@ -98,14 +103,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const isAdmin = user?.role === 'admin';
+  const isViewer = user?.role === 'viewer';
 
   const canEditIncident = useCallback(
-    (incident: { onDuty: { id: number } | null }) => isAdmin || (!!user && incident.onDuty?.id === user.id),
+    (incident: { createdBy: { id: number } | null; onDuty: { id: number } | null }) =>
+      isAdmin ||
+      (!!user && (incident.createdBy?.id === user.id || incident.onDuty?.id === user.id)),
     [isAdmin, user],
   );
 
   return (
-    <AuthContext.Provider value={{ token, user, restoring, isAdmin, canEditIncident, login, changePassword, logout }}>
+    <AuthContext.Provider
+      value={{ token, user, restoring, isAdmin, isViewer, canEditIncident, login, changePassword, logout }}
+    >
       {children}
     </AuthContext.Provider>
   );
